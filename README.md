@@ -2,7 +2,7 @@
 
 A local career profile and resume builder, built one MERN milestone at a time.
 
-**Current milestone: V1.4 - Complete profile, preview, and deletion.**
+**Current milestone: V2 - MongoDB persistence through Mongoose.**
 
 Enter your personal details and add **Work experience, Education, Skills,
 Projects, and Certificates**. Each section supports adding, editing, and removing
@@ -15,12 +15,20 @@ button works from all three views. **Delete profile** opens a confirmation dialo
 successful deletion clears the saved profile and the draft. Cancel or Escape
 keeps your data, and a failed deletion preserves your draft.
 
-V1 stores **one shared profile in the Express process's memory**. Browser refreshes
-keep that process running; restarting Express clears its data. Editing backend
-files with `tsx watch` also restarts Express. There is no database or user account
-yet. MongoDB persistence comes in V2.
+V2 stores the profile in **MongoDB** (`resumaer` database on `localhost:27017`).
+Data persists across Express restarts and `tsx watch` reloads. You need a running
+MongoDB instance before starting the backend. There is no user account yet;
+one shared profile document lives in the `profiles` collection.
 
 ## Start locally
+
+You need **MongoDB 6 or newer** running on `localhost:27017` before starting the
+backend. The Community Edition is free; [download it here](https://www.mongodb.com/try/download/community).
+On Windows you can also start a local instance with:
+
+```powershell
+mongod --dbpath C:\data\db
+```
 
 Use Node.js 24.11 or newer in the Node 24 series (npm comes with Node).
 Check your installation in PowerShell:
@@ -55,8 +63,8 @@ npm.cmd run dev
 `npm ci` installs the exact dependencies in `package-lock.json`. Run it the first
 time or after dependencies change, not every time you start the app.
 
-Open **http://localhost:5173**. With a fresh backend, personal details start empty
-and the other sections have no entries. The health endpoint remains at
+Open **http://localhost:5173**. With a running MongoDB and no previous data, personal
+details start empty and the other sections have no entries. The health endpoint remains at
 http://localhost:3000/api/health. Use `localhost` consistently: `127.0.0.1` is
 a different browser origin.
 
