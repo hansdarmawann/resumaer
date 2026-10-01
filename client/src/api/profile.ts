@@ -1,4 +1,4 @@
-﻿import { emptyBasics } from '../types/profile';
+import { emptyBasics, entryFactories } from '../types/profile';
 import type { FieldErrors, Profile } from '../types/profile';
 
 const PROFILE_URL = 'http://localhost:3000/api/profile';
@@ -17,12 +17,20 @@ function isObject(value: unknown): value is Record<string, unknown> {
 function isProfile(value: unknown): value is Profile {
   if (!isObject(value) || !isObject(value.basics)) return false;
   const basics = value.basics;
-  return Object.keys(emptyBasics).every((field) => typeof basics[field] === 'string');
+  if (!Object.keys(emptyBasics).every((field) => typeof basics[field] === 'string')) return false;
+  return Object.entries(entryFactories).every(([section, createEntry]) => {
+    const entries = value[section];
+    return Array.isArray(entries) && entries.every((entry: unknown) =>
+      isObject(entry) && Object.entries(createEntry()).every(([field, example]) =>
+        Array.isArray(example)
+          ? Array.isArray(entry[field]) && entry[field].every((item: unknown) => typeof item === 'string')
+          : typeof entry[field] === 'string'));
+  });
 }
 
 async function request(options: RequestInit): Promise<Response> {
   try {
-    // A timeout ensures a request cannot leave the form busy indefinitely.
+    // This timeout covers both receiving headers and reading the response body.
     const timeout = AbortSignal.timeout(10_000);
     const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
     return await fetch(PROFILE_URL, { ...options, signal });
@@ -35,40 +43,41 @@ async function request(options: RequestInit): Promise<Response> {
   }
 }
 
-async function readProfile(response: Response): Promise<Profile> {
+async function readData(response: Response): Promise<unknown> {
   let data: unknown;
   try {
     data = await response.json();
   } catch (error) {
-    // The timeout can also expire after headers arrive, while reading the body.
     if (error instanceof DOMException && ['TimeoutError', 'AbortError'].includes(error.name)) {
       throw new Error('Express took too long to respond. Please try again.');
     }
     throw new ApiError(`Express returned an unexpected response (HTTP ${response.status}).`, response.status);
   }
 
-  // fetch resolves for HTTP errors; check response.ok explicitly.
   if (!response.ok) {
     const errors: FieldErrors = {};
     if (isObject(data) && isObject(data.errors)) {
-      for (const field of Object.keys(emptyBasics) as (keyof FieldErrors)[]) {
-        if (typeof data.errors[field] === 'string') errors[field] = data.errors[field];
+      for (const [field, message] of Object.entries(data.errors)) {
+        const knownPath = Object.hasOwn(emptyBasics, field) || field === 'basics' ||
+          /^(work|education|skills|projects|certificates)(\.\d+(\.[a-zA-Z]+)?)?$/.test(field);
+        if (knownPath && typeof message === 'string') errors[field] = message;
       }
     }
     const message = isObject(data) && typeof data.message === 'string'
-      ? data.message
-      : `The API returned HTTP ${response.status}.`;
+      ? data.message : `The API returned HTTP ${response.status}.`;
     throw new ApiError(message, response.status, errors);
   }
+  return data;
+}
 
-  // TypeScript types do not check network JSON at runtime.
+async function readProfile(response: Response): Promise<Profile> {
+  const data = await readData(response);
   if (!isProfile(data)) throw new Error('Express returned an unexpected profile. Please try again.');
   return data;
 }
 
 export async function getProfile(signal: AbortSignal): Promise<Profile | null> {
   const response = await request({ method: 'GET', signal });
-  // An empty in-memory store is a normal first visit, not a failed load.
   if (response.status === 404) return null;
   return readProfile(response);
 }
@@ -80,4 +89,11 @@ export async function saveProfile(profile: Profile, exists: boolean): Promise<Pr
     body: JSON.stringify(profile),
   });
   return readProfile(response);
+}
+
+export async function deleteProfile(): Promise<void> {
+  const response = await request({ method: 'DELETE' });
+  if (response.status === 204) return;
+  await readData(response);
+  throw new ApiError(`Express returned an unexpected deletion response (HTTP ${response.status}).`, response.status);
 }

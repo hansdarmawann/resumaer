@@ -8,7 +8,7 @@ export const app = express();
 
 // Different ports mean different browser origins, so allow the local Vite page.
 app.use(cors({ origin: 'http://localhost:5173' }));
-app.use(express.json({ limit: '32kb' }));
+app.use(express.json({ limit: '1mb' }));
 
 app.get('/api/health', (_request, response) => {
   response.json({ status: 'ok' });
@@ -33,7 +33,7 @@ const handleError: ErrorRequestHandler = (error: unknown, _request, response, _n
       return;
     }
     if (error.type === 'entity.too.large') {
-      response.status(413).json({ message: 'The profile request is too large. The limit is 32 KB.' });
+      response.status(413).json({ message: 'The profile request is too large. The limit is 1 MB.' });
       return;
     }
     if (error.type === 'charset.unsupported' || error.type === 'encoding.unsupported') {

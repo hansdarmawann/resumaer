@@ -48,6 +48,7 @@ const profile = {
     url: 'https://example.com',
     summary: 'I build useful software.',
   },
+  work: [], education: [], skills: [], projects: [], certificates: [],
 };
 
 test('complete create, load, update, and delete lifecycle', async () => {
@@ -63,7 +64,7 @@ test('complete create, load, update, and delete lifecycle', async () => {
   assert.equal((await request('POST', { basics: { name: 'Replacement' } })).status, 409);
   assert.deepEqual((await request('GET')).body, profile);
 
-  const updated = { basics: { ...profile.basics, name: 'Grace Hopper', summary: 'Compiler pioneer.' } };
+  const updated = { ...profile, basics: { ...profile.basics, name: 'Grace Hopper', summary: 'Compiler pioneer.' } };
   assert.deepEqual(await request('PUT', updated), { status: 200, body: updated });
   // A separate GET represents loading the saved profile after a browser refresh.
   assert.deepEqual((await request('GET')).body, updated);
@@ -75,6 +76,7 @@ test('complete create, load, update, and delete lifecycle', async () => {
 test('optional fields default to empty strings and input strings are trimmed', async () => {
   assert.deepEqual((await request('POST', { basics: { name: '  Ada  ' } })).body, {
     basics: { name: 'Ada', label: '', email: '', phone: '', url: '', summary: '' },
+    work: [], education: [], skills: [], projects: [], certificates: [],
   });
   const padded = { basics: Object.fromEntries(Object.entries(profile.basics).map(([key, value]) => [key, `  ${value}  `])) };
   assert.deepEqual((await request('PUT', padded)).body, profile);
@@ -122,14 +124,14 @@ test('field limits are enforced, and exact limits are accepted', async () => {
     assert.deepEqual((await request('GET')).body, profile);
     assert.equal(atLimit[field].length, limit);
   }
-  assert.deepEqual(await request('PUT', { basics: atLimit }), { status: 200, body: { basics: atLimit } });
+  assert.deepEqual(await request('PUT', { basics: atLimit }), { status: 200, body: { ...profile, basics: atLimit } });
 });
 
 test('wrong shapes and unsupported fields do not create or overwrite a profile', async () => {
   const invalid = [
     {}, [], null,
     { basics: [] }, { basics: null }, { basics: {} },
-    { basics: { name: 'Ada' }, work: [] },
+    { basics: { name: 'Ada' }, volunteer: [] },
     { basics: { name: 'Ada', website: 'https://example.com' } },
   ];
   for (const body of invalid) {
@@ -154,7 +156,7 @@ test('malformed JSON, empty bodies, wrong content types, and oversized requests 
     [{ headers: { 'Content-Type': 'application/json; charset=latin1' }, body: JSON.stringify(profile) }, 415],
     [{ headers: { 'Content-Type': 'application/json', 'Content-Encoding': 'unsupported' }, body: JSON.stringify(profile) }, 415],
     [{ body: JSON.stringify(profile) }, 415],
-    [{ headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ basics: { name: 'Ada', summary: 'a'.repeat(34000) } }) }, 413],
+    [{ headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ basics: { name: 'Ada', summary: 'a'.repeat(1_048_576) } }) }, 413],
   ];
   for (const [options, expectedStatus] of requests) {
     const response = await fetch(`${origin}/api/profile`, { method: 'PUT', ...options });
