@@ -1,119 +1,159 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
+import { ApiError, getProfile, saveProfile } from './api/profile';
+import BasicsForm from './components/BasicsForm';
+import { emptyBasics } from './types/profile';
+import type { Basics, FieldErrors } from './types/profile';
 
-const HEALTH_URL = 'http://localhost:3000/api/health';
-
-type HealthResponse = { status: 'ok' };
-type Connection =
-  | { state: 'loading' }
-  | { state: 'success'; response: HealthResponse }
-  | { state: 'error'; message: string };
+type LoadState = 'loading' | 'ready' | 'error';
+type Feedback =
+  | { state: 'idle' | 'saving' }
+  | { state: 'success' | 'error'; message: string };
 
 export default function App() {
-  const [connection, setConnection] = useState<Connection>({ state: 'loading' });
-  const [attempt, setAttempt] = useState(0);
+  // The draft belongs to React; it reaches Express only when you click Save.
+  const [basics, setBasics] = useState<Basics>(emptyBasics);
+  const [savedBasics, setSavedBasics] = useState<Basics | null>(null);
+  const [profileExists, setProfileExists] = useState(false);
+  const [loadState, setLoadState] = useState<LoadState>('loading');
+  const [loadError, setLoadError] = useState('');
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [feedback, setFeedback] = useState<Feedback>({ state: 'idle' });
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   useEffect(() => {
     const controller = new AbortController();
 
-    async function checkConnection() {
+    async function loadProfile() {
       try {
-        // fetch sends an HTTP request from the browser to our Express server.
-        const response = await fetch(HEALTH_URL, { signal: controller.signal });
+        const profile = await getProfile(controller.signal);
+        if (controller.signal.aborted) return;
 
-        // fetch does not throw for HTTP errors such as 404 or 500.
-        if (!response.ok) {
-          throw new Error(`The API returned HTTP ${response.status}.`);
-        }
-
-        // TypeScript cannot validate network data, so check the small contract.
-        const data: unknown = await response.json();
-        if (
-          typeof data !== 'object' ||
-          data === null ||
-          !('status' in data) ||
-          data.status !== 'ok'
-        ) {
-          throw new Error('The API response did not contain status: "ok".');
-        }
-
-        if (!controller.signal.aborted) {
-          setConnection({ state: 'success', response: { status: data.status } });
-        }
+        setBasics(profile?.basics ?? { ...emptyBasics });
+        setSavedBasics(profile?.basics ?? null);
+        setProfileExists(profile !== null);
+        setLoadState('ready');
       } catch (error) {
-        if (!controller.signal.aborted) {
-          setConnection({
-            state: 'error',
-            message: error instanceof Error ? error.message : 'The request failed.',
-          });
-        }
+        if (controller.signal.aborted) return;
+        setLoadError(error instanceof Error ? error.message : 'The request failed.');
+        setLoadState('error');
       }
     }
 
-    void checkConnection();
-    // Cancel this request when the component unmounts or a new check starts.
+    void loadProfile();
+    // StrictMode and unmounting can cancel an obsolete load safely.
     return () => controller.abort();
-  }, [attempt]);
+  }, [loadAttempt]);
 
-  function retryConnection() {
-    setConnection({ state: 'loading' });
-    setAttempt((previous) => previous + 1);
+  function changeField(field: keyof Basics, value: string) {
+    // Make a new object so React can see that this controlled input changed.
+    setBasics((previous) => ({ ...previous, [field]: value }));
+    setFieldErrors((previous) => ({ ...previous, [field]: undefined }));
+    setFeedback({ state: 'idle' });
   }
+
+  async function handleSave() {
+    if (loadState !== 'ready' || feedback.state === 'saving') return;
+    setFeedback({ state: 'saving' });
+    setFieldErrors({});
+
+    try {
+      const saved = await saveProfile({ basics }, profileExists);
+      // Use the server's trimmed values after a confirmed successful save.
+      setBasics(saved.basics);
+      setSavedBasics(saved.basics);
+      setProfileExists(true);
+      setFeedback({ state: 'success', message: 'Profile saved. You can refresh to load it again.' });
+    } catch (error) {
+      let message = error instanceof Error ? error.message : 'The save failed.';
+
+      if (error instanceof ApiError) {
+        setFieldErrors(error.errors);
+        if (error.status === 404 && profileExists) {
+          // Restarting Express clears memory, so the next save must create.
+          setProfileExists(false);
+          setSavedBasics(null);
+          message = 'The saved profile is no longer available. Save again to create it.';
+        } else if (error.status === 409 && !profileExists) {
+          setProfileExists(true);
+          message = 'A profile already exists. Save again to update it with these details.';
+        }
+      }
+
+      // Keep the draft unchanged on every failure, including network errors.
+      setFeedback({ state: 'error', message: `${message} Your edits are still here.` });
+    }
+  }
+
+  function retryLoad() {
+    setLoadState('loading');
+    setLoadAttempt((previous) => previous + 1);
+  }
+
+  const dirty = savedBasics !== null && JSON.stringify(basics) !== JSON.stringify(savedBasics);
+  const draftStatus = savedBasics === null ? 'Not saved yet' : dirty ? 'Unsaved changes' : 'All changes saved';
+  const busy = loadState !== 'ready' || feedback.state === 'saving';
 
   return (
     <main>
       <header className="page-header">
         <a className="wordmark" href="/">resumaer<span>.</span></a>
-        <span className="milestone">V0 · MERN connection</span>
+        <span className="milestone">V1.1 · Profile basics</span>
       </header>
 
       <section className="intro" aria-labelledby="page-title">
-        <p className="eyebrow">ONE REQUEST. YOUR FIRST CONNECTION.</p>
-        <h1 id="page-title">A small start.<br />A working connection.</h1>
+        <p className="eyebrow">YOUR CAREER, IN YOUR WORDS</p>
+        <h1 id="page-title">Start with the basics.</h1>
         <p className="description">
-          Your career profile builder starts here. This page asks the backend
-          whether it is running, then displays its response.
+          Build your profile, one section at a time. Add your details below
+          and save when you’re ready.
         </p>
       </section>
 
-      <section className="connection-card" aria-labelledby="connection-title">
+      <section className="profile-card" aria-labelledby="basics-title" aria-busy={busy}>
         <div className="card-heading">
-          <h2 id="connection-title">Backend connection</h2>
-          <span className="request-method">GET</span>
-        </div>
-        <code className="endpoint">{HEALTH_URL}</code>
-
-        <div className={`result ${connection.state}`} role="status" aria-live="polite">
-          {connection.state === 'loading' && <p>Checking the connection…</p>}
-          {connection.state === 'success' && (
-            <>
-              <p className="result-title">Connected to Express</p>
-              <p>The backend replied with HTTP 200 and this JSON:</p>
-              <pre>{JSON.stringify(connection.response, null, 2)}</pre>
-            </>
-          )}
-          {connection.state === 'error' && (
-            <>
-              <p className="result-title">Connection failed</p>
-              <p>{connection.message}</p>
-              <p>Check that the backend is running on port 3000, then try again.</p>
-            </>
+          <div>
+            <h2 id="basics-title">Personal details</h2>
+            <p className="card-description">Introduce yourself and help people get in touch.</p>
+          </div>
+          {loadState === 'ready' && (
+            <span className={`draft-status ${savedBasics !== null && !dirty ? 'saved' : ''}`}>
+              <span className="status-dot" aria-hidden="true" />{draftStatus}
+            </span>
           )}
         </div>
 
-        <button onClick={retryConnection} disabled={connection.state === 'loading'}>
-          {connection.state === 'loading' ? 'Checking…' : 'Check again'}
-        </button>
+        <div className="feedback-region" aria-live="polite" aria-atomic="true">
+          {loadState === 'loading' && <p className="feedback loading">Loading your profile…</p>}
+          {loadState === 'error' && (
+            <div className="feedback error">
+              <p><strong>Couldn’t load your profile.</strong> {loadError}</p>
+              <p>Check that Express is running, then try again.</p>
+              <button className="secondary-button" type="button" onClick={retryLoad}>Retry loading</button>
+            </div>
+          )}
+          {feedback.state === 'saving' && <p className="feedback loading">Saving your profile…</p>}
+          {(feedback.state === 'success' || feedback.state === 'error') && (
+            <p className={`feedback ${feedback.state}`}>{feedback.message}</p>
+          )}
+        </div>
+
+        <BasicsForm
+          basics={basics}
+          onChange={changeField}
+          onSave={handleSave}
+          disabled={busy}
+          saving={feedback.state === 'saving'}
+          errors={fieldErrors}
+        />
       </section>
 
-      <section className="request-flow" aria-label="Request and response flow">
-        <div><strong>React</strong><span>Browser · port 5173</span></div>
-        <span className="flow-arrow" aria-hidden="true">↔</span>
-        <div><strong>HTTP + JSON</strong><span>Request and response</span></div>
-        <span className="flow-arrow" aria-hidden="true">↔</span>
-        <div><strong>Express</strong><span>Node.js · port 3000</span></div>
-      </section>
+      <aside className="storage-note" aria-label="About saving">
+        <span className="note-icon" aria-hidden="true">i</span>
+        <p><strong>A place to start.</strong> Saved details stay available after a page refresh.
+          For now, restarting Express clears your saved profile.</p>
+      </aside>
 
-      <footer>Current milestone: V0. Next: the professional profile editor.</footer>
+      <footer>Made for your next chapter. One small step at a time.</footer>
     </main>
   );
 }

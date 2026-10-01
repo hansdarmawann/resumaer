@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
+    "test": "npm run build && node --test --test-isolation=none tests/profile.test.mjs",
     "start": "node dist/index.js"
   },
   "engines": {

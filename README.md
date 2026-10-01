@@ -1,17 +1,17 @@
-# Resumaer
+﻿# Resumaer
 
 A local career profile and resume builder, built one small MERN milestone at a time.
 
-**Current milestone: V0 — React talks to Express.**
+**Current milestone: V1.1 - Basics form and saving.**
 
-V0 is implemented and verified locally: both TypeScript builds pass; Chrome
-receives the real API response; stopping and restarting the backend exercises
-error handling and recovery. HTTP-error and invalid-response handling, mobile
-layout, and the compiled frontend preview were also checked.
+Enter your name, professional title, email, phone, website, and summary, then
+click **Save profile**. Refresh the browser to load the saved information.
+Failed saves preserve your edits and show an error.
 
-V0 contains a React + TypeScript frontend and an Express + TypeScript backend.
-The page calls `GET /api/health` and shows the JSON response. MongoDB starts in V2;
-profile editing starts in V1. This milestone does not store profile data.
+V1 stores **one shared profile in the Express process's memory**. Browser refreshes
+keep that process running; restarting Express clears its data. Editing backend
+files with `tsx watch` also restarts Express. There is no database or user account
+yet. MongoDB persistence comes in V2.
 
 ## Start locally
 
@@ -23,13 +23,13 @@ node --version
 npm.cmd --version
 ```
 
-The commands below use `npm.cmd` so PowerShell does not need permission to run
-the `npm.ps1` script. On macOS/Linux, use `npm` instead.
+These commands use `npm.cmd` so PowerShell does not need permission to run
+`npm.ps1`. On macOS/Linux, use `npm` instead.
 
 Open **two terminals in the repository root**. Each server stays running in its
-own terminal; use Ctrl+C to stop it.
+own terminal; press Ctrl+C to stop it.
 
-Terminal 1 — backend:
+Terminal 1 - backend:
 
 ```powershell
 cd server
@@ -37,7 +37,7 @@ npm.cmd ci
 npm.cmd run dev
 ```
 
-Terminal 2 — frontend:
+Terminal 2 - frontend:
 
 ```powershell
 cd client
@@ -45,154 +45,217 @@ npm.cmd ci
 npm.cmd run dev
 ```
 
-`npm ci` installs the exact dependencies recorded in `package-lock.json`. Run it
-the first time or after dependencies change, not every time you start the app.
+`npm ci` installs the exact dependencies in `package-lock.json`. Run it the first
+time or after dependencies change, not every time you start the app.
 
-Open **http://localhost:5173**. The page should say **Connected to Express** and show:
+Open **http://localhost:5173**. With a fresh backend, the form starts empty because
+no profile exists. The health endpoint remains at http://localhost:3000/api/health.
+Use `localhost` consistently: `127.0.0.1` is a different browser origin.
+
+The browser calls `http://localhost:3000/api/profile` directly through `fetch()`.
+There is no Vite API proxy. Express allows the frontend origin
+`http://localhost:5173` through CORS response headers. CORS is a browser rule;
+it is not authentication.
+
+## The data we save
+
+The [official JSON Resume schema](https://jsonresume.org/schema) puts these fields
+inside `basics`. Professional title uses `label`; website uses `url`.
+
+| Form field | JSON field | V1.1 validation |
+| --- | --- | --- |
+| Name | `basics.name` | Required text, at most 120 characters |
+| Professional title | `basics.label` | Optional text, at most 120 characters |
+| Email | `basics.email` | Optional valid email, at most 254 characters |
+| Phone | `basics.phone` | Optional text, at most 50 characters |
+| Website | `basics.url` | Optional absolute `http://` or `https://` URL, at most 2048 characters |
+| Summary | `basics.summary` | Optional text, at most 5000 characters |
 
 ```json
 {
-  "status": "ok"
+  "basics": {
+    "name": "Ayu Pratama",
+    "label": "Frontend Developer",
+    "email": "ayu@example.com",
+    "phone": "+62 0812 3456 7890",
+    "url": "https://example.com",
+    "summary": "I build accessible web applications."
+  }
 }
 ```
 
-You can also open http://localhost:3000/api/health directly. That checks the API
-on its own; the frontend page checks the full browser-to-backend connection.
-Use `localhost` consistently: `127.0.0.1` is a different origin for CORS purposes.
+Phone is a **string**, so plus signs, leading zeroes, spaces, and punctuation stay
+intact. The API trims surrounding whitespace and fills omitted optional fields
+with empty strings. Non-string values, extra sections, and unsupported basics
+fields are rejected. This validator covers our V1.1 subset; full JSON Resume
+validation, import, and export belong to V3.
 
-## Follow one request
-
-```text
-Browser renders the React App component       localhost:5173
-    ↓ fetch('http://localhost:3000/api/health')
-HTTP GET /api/health
-    ↓
-Express matches app.get('/api/health', ...)    localhost:3000
-    ↓ response.json({ status: 'ok' })
-HTTP 200 + JSON response
-    ↓ response.json() in the browser
-React updates component state and displays “Connected to Express”
-```
-
-- **Frontend:** React runs in the browser and controls what the user sees. Vite
-  serves the frontend files during development and updates the page as you edit.
-- **Backend:** Node.js runs JavaScript outside the browser. Express handles
-  incoming HTTP requests inside that Node process.
-- **Ports:** `5173` identifies the Vite server; `3000` identifies the Express
-  server. Both run on your own computer (`localhost`).
-- **HTTP:** The browser sends a method (`GET`) and a path (`/api/health`). The
-  server sends a status code (`200` means success), headers, and a response body.
-- **JSON:** A text format for exchanging data. Express serializes an object to
-  JSON; the browser's `response.json()` parses it back into a JavaScript value.
-- **REST:** We are beginning an HTTP API that uses paths and methods. `GET`
-  reads information; later milestones will introduce methods that save changes.
-- **CORS:** An origin includes protocol, hostname, and port. These two servers
-  have different origins. The Express CORS middleware adds a response header
-  permitting the browser page at `http://localhost:5173` to read the API response.
-  CORS is a browser rule, not authentication or a way to block other clients.
-- **TypeScript:** Checks code before it runs. Network JSON still needs runtime
-  validation, so the component explicitly checks that the response has `status: 'ok'`.
-
-There is deliberately no Vite API proxy: the browser calls Express directly,
-making the two servers and CORS visible while learning.
-
-## What each file does
+## Follow one save
 
 ```text
-resumaer/
-├── client/
-│   ├── src/
-│   │   ├── App.tsx         Connection check, React state, and page content
-│   │   ├── main.tsx        Mounts React inside index.html
-│   │   └── styles.css      Page styling and mobile layout
-│   ├── index.html         Browser entry point; contains React's root element
-│   ├── vite.config.ts     React plugin and fixed localhost development port
-│   ├── tsconfig.json      Strict TypeScript settings for browser code
-│   ├── package.json       Frontend packages and commands
-│   └── package-lock.json  Exact installed dependency versions
-├── server/
-│   ├── src/index.ts       Express app, CORS, health route, and listening port
-│   ├── tsconfig.json      Strict TypeScript settings; outputs JavaScript to dist/
-│   ├── package.json       Backend packages and commands
-│   └── package-lock.json  Exact installed dependency versions
-├── .gitignore             Keeps dependencies, builds, and local files out of Git
-└── README.md              Setup, concepts, verification, and milestone progress
+React form -> fetch() -> Route -> Controller -> Service -> In-memory profile
+                         Express on localhost:3000
 ```
 
-Start reading with `server/src/index.ts`, then `client/src/App.tsx`, then
-`client/src/main.tsx`. The route and request handler fit in one backend file for
-now. Controllers, services, models, and extra directories will appear when
-profile features give them actual work to do.
+1. React keeps the current input values in state. Clicking **Save profile** runs
+   the save handler; typing alone does not send a save request.
+2. `client/src/api/profile.ts` calls `fetch()` with `Content-Type: application/json`
+   and `JSON.stringify({ basics })`. Stringifying turns an object into JSON text.
+3. The router matches the HTTP method and `/api/profile` path to a controller.
+4. The controller validates the request body, calls the service, and sends an
+   HTTP response. The service reads or changes the profile stored in memory.
+5. The browser checks `response.ok`, parses the JSON, and updates save feedback.
+   `fetch()` rejects network failures, but HTTP 400 or 500 still need that check.
 
-The backend uses `express` for HTTP routes and `cors` for response headers.
-`tsx watch` runs TypeScript during development and restarts the backend on edits;
-`typescript` checks types and compiles it to JavaScript. The frontend uses
-`react` for components, `react-dom` to render them, and Vite's React plugin for
-development integration. The `@types/*` packages describe libraries' types to
-TypeScript; they add no application features.
+The first save uses **POST** and receives **201 Created**. Once a profile exists,
+subsequent saves use **PUT** and receive **200 OK**. Loading uses **GET**. An initial
+GET **404** means the store is empty, so the app displays a blank form.
 
-## Verify and explore V0
+If a save fails, React keeps your draft. If Express restarts after a profile was
+loaded, PUT receives 404. The app keeps the draft, explains that no saved profile
+exists, and lets the next save create it with POST.
 
-1. Start both servers and open the frontend. Confirm the green connection result.
-2. Open browser developer tools → **Network**, then click **Check again**. Inspect
-   the `health` request: URL, method `GET`, status `200`, and JSON response.
-3. Inspect its response headers for
-   `Access-Control-Allow-Origin: http://localhost:5173`.
-4. Stop the backend with Ctrl+C, then click **Check again**. The page should show
-   **Connection failed**, rather than leaving the previous success visible.
-5. Restart the backend and click **Check again**. The connection should recover.
+## What each file teaches
 
-To check TypeScript and build both packages, run from the repository root:
+Frontend files:
+
+| File | Responsibility and concept |
+| --- | --- |
+| `client/src/types/profile.ts` | Defines `Basics`, `Profile`, and field-error types: the shape our TypeScript code expects. |
+| `client/src/api/profile.ts` | Handles GET/POST/PUT requests, checks HTTP status and response shapes, and turns API failures into usable errors. |
+| `client/src/components/BasicsForm.tsx` | A focused form component: labeled controlled inputs, field messages, and an explicit submit button. |
+| `client/src/App.tsx` | Owns the draft and loading/saving state, loads the profile on mount, and chooses POST or PUT. |
+| `client/src/main.tsx` | Mounts React into the root element and enables development StrictMode. |
+| `client/src/styles.css` | Styles the form, feedback, and responsive layout. |
+| `client/index.html` | Browser entry point containing React's root element. |
+| `client/vite.config.ts` | Sets the React plugin and fixed localhost ports for development and preview. |
+
+A **controlled input** gets its `value` from React state. Its `onChange` handler
+updates that state; React then displays the updated value. `useState` keeps data
+between renders. The form passes changes to its parent through a callback prop.
+
+An immutable update makes a new object while keeping the other fields:
+
+```tsx
+setBasics((previous) => ({ ...previous, [field]: value }));
+```
+
+`previous` is the latest state, `...previous` copies its fields, and `[field]`
+selects the field being changed. React can render the new object without mutating
+the old one. Changing the name should not erase the email.
+
+`useEffect` loads the saved profile when the app mounts. Its cleanup calls
+`AbortController.abort()` to cancel an obsolete load, such as when the component
+unmounts or loading is retried. Save and loading feedback belong to separate
+state so an error can be shown without clearing the form.
+
+Backend files:
+
+| File | Responsibility and concept |
+| --- | --- |
+| `server/src/index.ts` | Starts listening on port 3000. |
+| `server/src/app.ts` | Configures Express, CORS, JSON parsing with a 32 KB limit, routes, and the central error handler. Exporting the app lets tests run it independently. |
+| `server/src/routes/profile.routes.ts` | Connects each method/path to a controller and requires JSON for POST/PUT. |
+| `server/src/controllers/profile.controller.ts` | Handles HTTP: validates bodies, calls services, and chooses response status/body. |
+| `server/src/services/profile.service.ts` | Owns the stored profile and implements create/read/update/delete. Copies prevent callers from mutating stored data by reference. |
+| `server/src/validation/profile.validation.ts` | Checks untrusted input at runtime, normalizes accepted values, and returns field errors. TypeScript alone cannot validate network JSON. |
+| `server/src/types/profile.ts` | Defines the backend's profile and field-error types. |
+| `server/src/errors/http-error.ts` | Represents expected errors with an HTTP status, readable message, and optional field errors. |
+| `server/tests/profile.test.mjs` | Exercises real HTTP requests against the app, including validation and storage lifecycle. |
+
+Read the router, controller, service, and validator in that order, then follow the
+frontend API helper back to `App.tsx` and `BasicsForm.tsx`. Backend import paths end
+in `.js` because the TypeScript build emits JavaScript files for Node to run.
+
+## API contract
+
+All endpoints below use `/api/profile`.
+
+| Method | Successful response | When the profile is absent or already exists |
+| --- | --- | --- |
+| GET | 200 with the profile | 404 if absent |
+| POST | 201 with the created profile | 409 if already present |
+| PUT | 200 with the updated profile | 404 if absent |
+| DELETE | 204 with no body | 404 if absent |
+
+DELETE is available to API clients; the profile deletion button comes in V1.4.
+POST and PUT accept the JSON shape above. Invalid data or malformed JSON returns
+400; unsupported content type/encoding returns 415; oversized bodies return 413.
+Failures use `{ "message": "...", "errors": { "name": "..." } }`, where `errors`
+is optional and field keys match `name`, `label`, `email`, `phone`, `url`, `summary`.
+
+## Verify V1.1
+
+Verified locally: both TypeScript builds and all seven backend integration tests
+pass. Chrome checks passed for create/update, refresh loading, validation, failed
+save preservation, HTTP errors, unexpected responses, Express restart recovery,
+load retry, create conflicts between tabs, and timeout recovery before headers
+and while reading the body. The form also fits 390 px and 320 px mobile widths
+without horizontal overflow; no browser runtime errors were observed.
+
+Use this walkthrough with both servers running:
+
+1. Restart the backend and open the frontend. Confirm that the empty store loads
+   as a blank form. Open browser developer tools > **Network**.
+2. Fill all six fields and click **Save profile**. Inspect the `profile` request:
+   method POST, status 201, JSON request body under `basics`, and returned values.
+3. Refresh the browser. Inspect GET with status 200 and confirm all values reload.
+4. Change the professional title, then save. Inspect PUT with status 200. Refresh
+   again and confirm the changed title reloads.
+5. Stop Express with Ctrl+C. Change a field and try saving. Confirm an error is
+   visible and your edited values remain in the form.
+6. Restart Express. Try saving the same draft: the old PUT returns 404. Follow the
+   feedback and click **Save profile** again; POST should recreate the profile.
+7. Stop Express, refresh the page, and confirm loading failure is shown. Restart
+   it and choose **Retry loading**. Confirm loading recovers.
+8. Try an empty name, an invalid email, and a website without `https://`. Confirm
+   validation messages, then correct the values and save successfully.
+
+Run the automated HTTP tests and both builds from the repository root:
 
 ```powershell
+npm.cmd --prefix server test
 npm.cmd --prefix server run build
 npm.cmd --prefix client run build
 ```
 
-The backend build produces `server/dist/index.js`. After stopping its development
-server, `npm.cmd --prefix server start` runs this compiled JavaScript on port 3000.
-The frontend build produces static files in `client/dist/`. After stopping its
-development server, `npm.cmd --prefix client run preview` serves that build on
-the same localhost port 5173, so the allowed CORS origin stays the same.
+Tests use their own temporary server, so they do not clear your running development
+server's profile. The backend build creates `server/dist/`; stop the development
+server before `npm.cmd --prefix server start`. The frontend build creates
+`client/dist/`; stop Vite before `npm.cmd --prefix client run preview`, which uses
+localhost port 5173 and the same CORS origin.
 
-**Try this yourself:** in the backend, change `status: 'ok'` to `status: 'learning'`
-and check again. The page should report an unexpected response. Explain why the
-request can return HTTP 200 but still fail the frontend's contract check, then
-restore `'ok'`. This connects the server response to the frontend's validation.
+**Small exercise:** enter a phone number with `+62`, a leading zero, and spaces.
+Find that string in React's input value, the Network request body, the API response,
+and the form after refresh. Explain why changing `phone` to a number would lose
+information. Then explain how the spread in the state update keeps sibling fields.
 
-## Troubleshooting
+## Troubleshooting and next milestones
 
-- **`node` is not recognized:** reopen your terminal after installing Node. If it
-  is already installed at `C:\Program Files\nodejs`, this command makes it
-  available in the current PowerShell session:
+- **`node` is not recognized:** reopen the terminal after installing Node. If it is
+  installed at `C:\Program Files\nodejs`, set the current session's path with
   `$env:Path = 'C:\Program Files\nodejs;' + $env:Path`.
-- **Connection failed:** ensure the backend terminal is running and open the
-  health endpoint directly. Look in the browser console for a network or CORS
-  error. Open the frontend at exactly `http://localhost:5173`.
-- **Port already in use:** stop the previous process using that port. Vite uses
-  `strictPort` so it fails clearly instead of silently changing the frontend
-  origin and breaking CORS.
-- **Two initial requests in development:** React StrictMode runs an extra effect
-  setup/cleanup cycle to help find bugs. The effect's AbortController cancels an
-  obsolete request; you may see one canceled request in the Network panel.
-- **An unknown API path returns 404:** only `/api/health` exists at V0. Opening the
-  backend root `/` is not the same as opening the React app.
-
-## Milestones
+- **Loading or saving fails:** check the backend terminal and health endpoint.
+  Open the frontend at exactly `http://localhost:5173`; inspect Network/Console
+  for errors. Failed saves retain your draft so you can try again.
+- **Saved data disappeared:** an Express restart, including `tsx watch` restarting
+  after a backend edit, clears V1's in-memory profile.
+- **Port already in use:** stop the previous server. Vite's `strictPort` prevents
+  quietly switching to another origin and breaking CORS.
+- **Two initial GETs in development:** StrictMode checks effect cleanup by running
+  an extra setup/cleanup cycle. You may see one canceled load request.
 
 | Version | Scope |
 | --- | --- |
-| **V0 — current** | Local React → Express health check, TypeScript, CORS |
-| V1 | Profile editor and REST CRUD, initially in memory |
+| V0 | Completed React/Express health check, TypeScript, and CORS foundation |
+| **V1.1 - current** | Basics form with explicit saving and loading; temporary storage |
+| V1.2 | Create, edit, and remove work experience entries |
+| V1.3 | Education, Skills, Projects, and Certificates in focused components |
+| V1.4 | Profile preview, JSON view, expanded feedback/verification, and deletion UI |
 | V2 | MongoDB persistence through Mongoose |
-| V3 | JSON Resume validation, mapping, import, and export |
+| V3 | Full JSON Resume validation, mapping, import, and export |
 | V4 | Single-column ATS-friendly resume and PDF output |
 
-Future data will follow JSON Resume while keeping application metadata separate.
-Stay on localhost through V4. Authentication, deployment, Docker, and AI features
-are outside these milestones. Stop after V0 verification and understand the
-request flow before moving to V1.
-
-Reference documentation: [Vite getting started](https://vite.dev/guide/),
-[Express first route](https://expressjs.com/en/starter/hello-world/),
-[Express CORS middleware](https://expressjs.com/en/resources/middleware/cors/).
+Stop here to understand V1.1 and complete the exercise before adding work entries.
+Stay on localhost through V4; authentication, deployment, Docker, and AI features
+are outside these milestones.
