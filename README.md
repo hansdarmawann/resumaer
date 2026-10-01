@@ -324,11 +324,14 @@ and stable row keys preserve the remaining entry.
 - **`node` is not recognized:** reopen the terminal after installing Node. If it is
   installed at `C:\Program Files\nodejs`, set the current session's path with
   `$env:Path = 'C:\Program Files\nodejs;' + $env:Path`.
+- **Backend won't start:** confirm MongoDB is running on `localhost:27017`. The
+  backend prints `Failed to connect to MongoDB` and exits if it cannot connect.
 - **Loading, saving, or deletion fails:** check the backend terminal and health
   endpoint. Open exactly `http://localhost:5173`; inspect Network/Console errors.
   Failed save/delete requests retain the draft.
-- **Saved data disappeared:** an Express restart, including `tsx watch` restarting
-  after a backend edit, clears V1's in-memory profile.
+- **Saved data persists between restarts:** V2 uses MongoDB; an Express restart no
+  longer clears the profile. To reset, delete the profile through the UI or drop the
+  `resumaer` collection in MongoDB.
 - **Port already in use:** stop the previous server. Vite's `strictPort` prevents
   quietly switching origins and breaking CORS.
 - **Two initial GETs in development:** StrictMode checks effect cleanup by running
@@ -342,8 +345,8 @@ and stable row keys preserve the remaining entry.
 | V1.1 - completed | Basics form with explicit saving and loading; temporary storage |
 | V1.2 - completed | Create, edit, and remove work experience entries |
 | V1.3 - completed | Education, Skills, Projects, and Certificates in focused components |
-| **V1.4 - current, completed** | Profile preview, JSON view, expanded feedback/verification, and deletion UI |
-| V2 | MongoDB persistence through Mongoose |
+| V1.4 - completed | Profile preview, JSON view, expanded feedback/verification, and deletion UI |
+| **V2 - current, completed** | MongoDB persistence through Mongoose |
 | V3 | Full JSON Resume validation, mapping, import, and export |
 | V4 | Single-column ATS-friendly resume and PDF output |
 
