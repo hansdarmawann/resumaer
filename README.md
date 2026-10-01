@@ -2,23 +2,15 @@
 
 A local career profile and resume builder, built one MERN milestone at a time.
 
-**Current milestone: V2 - MongoDB persistence through Mongoose.**
+**Current milestone: V3 - Full JSON Resume validation, mapping, import, and export.**
 
-Enter your personal details and add **Work experience, Education, Skills,
-Projects, and Certificates**. Each section supports adding, editing, and removing
-entries. Click **Save profile** to save the entire draft; refresh to load it again.
-Failed saves preserve every section and show errors beside the affected fields.
+Enter your personal details and add **Work experience, Volunteer, Education, Awards, Certificates, Publications, Skills, Languages, Interests, References, and Projects**. Each section supports adding, editing, and removing entries. Click **Save profile** to save the entire draft; refresh to load it again. Failed saves preserve every section and show errors beside the affected fields.
 
-Switch to **Preview** to see the current draft as a readable profile, or **JSON**
-to inspect the object sent to the API. Both views include unsaved edits. The save
-button works from all three views. **Delete profile** opens a confirmation dialog;
-successful deletion clears the saved profile and the draft. Cancel or Escape
-keeps your data, and a failed deletion preserves your draft.
+Switch to **Preview** to see the current draft as a readable profile, or **JSON** to inspect the object sent to the API. Both views include unsaved edits. The save button works from all three views. **Delete profile** opens a confirmation dialog; successful deletion clears the saved profile and the draft.
 
-V2 stores the profile in **MongoDB** (`resumaer` database on `localhost:27017`).
-Data persists across Express restarts and `tsx watch` reloads. You need a running
-MongoDB instance before starting the backend. There is no user account yet;
-one shared profile document lives in the `profiles` collection.
+V3 introduces **Import** and **Export** for full JSON Resume compatibility. You can upload a `resume.json` file or paste JSON data to instantly populate the editor. Use Export to download your profile as a standard `resume.json` file or copy the raw JSON to your clipboard.
+
+V2 and V3 store the profile in **MongoDB** (`resumaer` database on `localhost:27017`). Data persists across Express restarts and `tsx watch` reloads. You need a running MongoDB instance before starting the backend. There is no user account yet; one shared profile document lives in the `profiles` collection.
 
 ## Start locally
 
@@ -75,7 +67,7 @@ it is not authentication.
 
 ## The data we save
 
-Field names follow our subset of the [official JSON Resume schema](https://jsonresume.org/schema).
+Field names follow the [official JSON Resume schema](https://jsonresume.org/schema) (v1.0.0).
 Professional title uses `basics.label`; website uses `url`.
 
 | Personal detail | JSON field | Validation |
@@ -85,17 +77,26 @@ Professional title uses `basics.label`; website uses `url`.
 | Email | `basics.email` | Optional valid email, at most 254 characters |
 | Phone | `basics.phone` | Optional text, at most 50 characters |
 | Website | `basics.url` | Optional absolute HTTP(S) URL, at most 2048 characters |
+| Image | `basics.image` | Optional absolute HTTP(S) URL, at most 2048 characters |
 | Summary | `basics.summary` | Optional text, at most 5000 characters |
+| Location | `basics.location` | Optional nested object (`address`, `postalCode`, `city`, `countryCode`, `region`) |
+| Social profiles| `basics.profiles` | Optional list of networks, up to 20 profiles (`network`, `username`, `url`) |
 
 | Section | Required fields for each added entry | Other supported fields |
 | --- | --- | --- |
 | Work | Company (`name`), `position` | `url`, `startDate`, `endDate`, `summary`, `highlights` |
+| Volunteer | Organization (`organization`) | `position`, `url`, `startDate`, `endDate`, `summary`, `highlights` |
 | Education | `institution` | `url`, `area`, `studyType`, `startDate`, `endDate`, `score`, `courses` |
-| Skills | Group (`name`) | `level`, `keywords` |
-| Projects | `name` | `description`, `url`, `startDate`, `endDate`, `highlights` |
+| Awards | `title` | `date`, `awarder`, `summary` |
 | Certificates | `name` | `date`, `issuer`, `url` |
+| Publications | `name` | `publisher`, `releaseDate`, `url`, `summary` |
+| Skills | Group (`name`) | `level`, `keywords` |
+| Languages | `language` | `fluency` |
+| Interests | `name` | `keywords` |
+| References | `name` | `reference` |
+| Projects | `name` | `description`, `url`, `startDate`, `endDate`, `highlights`, `roles`, `type` |
 
-The five repeating sections are optional, with up to **50 entries each**. Short
+The eleven repeating sections are optional, with up to **50 entries each**. Short
 text fields allow 120 characters; education score allows 50; summaries and project
 descriptions allow 5000. URLs use the same HTTP(S) rule and 2048-character limit
 as basics. Dates accept real calendar values as `YYYY`, `YYYY-MM`, or `YYYY-MM-DD`.
@@ -108,13 +109,16 @@ The independent **1 MB request limit** applies to the combined profile.
 
 ```json
 {
+  "$schema": "https://raw.githubusercontent.com/jsonresume/resume-schema/master/schema.json",
   "basics": {
     "name": "Ayu Pratama",
     "label": "Frontend Developer",
     "email": "ayu@example.com",
     "phone": "+62 0812 3456 7890",
     "url": "https://example.com",
-    "summary": "I build accessible web applications."
+    "summary": "I build accessible web applications.",
+    "location": { "city": "Jakarta", "countryCode": "ID" },
+    "profiles": [{ "network": "GitHub", "username": "ayupratama", "url": "https://github.com/ayupratama" }]
   },
   "work": [{
     "name": "Example company", "position": "Developer", "url": "",
@@ -129,9 +133,12 @@ The independent **1 MB request limit** applies to the combined profile.
   "skills": [{ "name": "Web development", "level": "Advanced", "keywords": ["React", "TypeScript"] }],
   "projects": [{
     "name": "Portfolio", "description": "A personal website.", "url": "https://example.com",
-    "startDate": "2024-02", "endDate": "", "highlights": ["Responsive design"]
+    "startDate": "2024-02", "endDate": "", "highlights": ["Responsive design"],
+    "roles": [], "type": ""
   }],
-  "certificates": [{ "name": "Cloud fundamentals", "issuer": "Example", "date": "2024-06", "url": "" }]
+  "certificates": [{ "name": "Cloud fundamentals", "issuer": "Example", "date": "2024-06", "url": "" }],
+  "volunteer": [], "awards": [], "publications": [], "languages": [], "interests": [], "references": [],
+  "meta": { "version": "v1.0.0", "lastModified": "2026-10-01" }
 }
 ```
 
@@ -141,8 +148,7 @@ optional text fields with empty strings. Missing sections and list fields become
 empty arrays. Lists trim each item and omit blank lines on save.
 
 Unsupported sections and fields, wrong value types, and invalid entries are
-rejected before any saved data changes. This validator covers our V1 subset;
-full JSON Resume validation, mapping, import, and export belong to V3.
+rejected before any saved data changes. The validator strictly enforces the full JSON Resume schema.
 
 ## Follow one save
 
@@ -346,8 +352,8 @@ and stable row keys preserve the remaining entry.
 | V1.2 - completed | Create, edit, and remove work experience entries |
 | V1.3 - completed | Education, Skills, Projects, and Certificates in focused components |
 | V1.4 - completed | Profile preview, JSON view, expanded feedback/verification, and deletion UI |
-| **V2 - current, completed** | MongoDB persistence through Mongoose |
-| V3 | Full JSON Resume validation, mapping, import, and export |
+| V2 - completed | MongoDB persistence through Mongoose |
+| **V3 - current, completed** | Full JSON Resume validation, mapping, import, and export |
 | V4 | Single-column ATS-friendly resume and PDF output |
 
 Stay on localhost through V4; authentication, deployment, Docker, and AI features

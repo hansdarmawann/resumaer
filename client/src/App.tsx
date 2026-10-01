@@ -2,14 +2,22 @@ import { useEffect, useRef, useState } from 'react';
 import { ApiError, deleteProfile, getProfile, saveProfile } from './api/profile';
 import BasicsForm from './components/BasicsForm';
 import WorkForm from './components/WorkForm';
+import VolunteerForm from './components/VolunteerForm';
 import EducationForm from './components/EducationForm';
-import SkillsForm from './components/SkillsForm';
-import ProjectsForm from './components/ProjectsForm';
+import AwardsForm from './components/AwardsForm';
 import CertificatesForm from './components/CertificatesForm';
+import PublicationsForm from './components/PublicationsForm';
+import SkillsForm from './components/SkillsForm';
+import LanguagesForm from './components/LanguagesForm';
+import InterestsForm from './components/InterestsForm';
+import ReferencesForm from './components/ReferencesForm';
+import ProjectsForm from './components/ProjectsForm';
 import ProfilePreview from './components/ProfilePreview';
 import DeleteProfileDialog from './components/DeleteProfileDialog';
+import ImportDialog from './components/ImportDialog';
+import ExportPanel from './components/ExportPanel';
 import { emptyProfile } from './types/profile';
-import type { Basics, FieldErrors, Profile, Section } from './types/profile';
+import type { Basics, FieldErrors, Profile, Section, Location, SocialProfile } from './types/profile';
 
 type LoadState = 'loading' | 'ready' | 'error';
 type Feedback =
@@ -18,7 +26,6 @@ type Feedback =
 type View = 'edit' | 'preview' | 'json';
 
 export default function App() {
-  // A single draft keeps all sections together until an explicit save succeeds.
   const [draft, setDraft] = useState<Profile>(emptyProfile);
   const [savedProfile, setSavedProfile] = useState<Profile | null>(null);
   const [profileExists, setProfileExists] = useState(false);
@@ -29,6 +36,7 @@ export default function App() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [view, setView] = useState<View>('edit');
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editorVersion, setEditorVersion] = useState(0);
   const operationInProgress = useRef(false);
 
@@ -65,17 +73,38 @@ export default function App() {
     setFeedback({ state: 'idle' });
   }
 
+  function changeLocation(field: keyof Location, value: string) {
+    setDraft((previous) => ({ ...previous, basics: { ...previous.basics, location: { ...previous.basics.location, [field]: value } } }));
+    setFieldErrors((previous) => ({ ...previous, [`location.${field}`]: undefined, location: undefined }));
+    setFeedback({ state: 'idle' });
+  }
+
+  function changeProfiles(profiles: SocialProfile[]) {
+    setDraft((previous) => ({ ...previous, basics: { ...previous.basics, profiles } }));
+    setFieldErrors((previous) => Object.fromEntries(
+      Object.entries(previous).filter(([path]) => !path.startsWith('profiles'))
+    ));
+    setFeedback({ state: 'idle' });
+  }
+
   function changeSection<S extends Section>(section: S, entries: Profile[S]) {
     setDraft((previous) => ({ ...previous, [section]: entries }));
-    // Entry indices shift after removal, so clear this section's old errors.
     setFieldErrors((previous) => Object.fromEntries(
       Object.entries(previous).filter(([path]) => path !== section && !path.startsWith(`${section}.`)),
     ));
     setFeedback({ state: 'idle' });
   }
 
+  function handleImport(profile: Profile) {
+    setDraft(profile);
+    setFieldErrors({});
+    setFeedback({ state: 'idle' });
+    setEditorVersion((previous) => previous + 1);
+    setImportOpen(false);
+  }
+
   async function handleSave() {
-    if (loadState !== 'ready' || operationInProgress.current || deleteOpen) return;
+    if (loadState !== 'ready' || operationInProgress.current || deleteOpen || importOpen) return;
     operationInProgress.current = true;
     setFeedback({ state: 'saving' });
     setFieldErrors({});
@@ -141,7 +170,7 @@ export default function App() {
     <main>
       <header className="page-header">
         <a className="wordmark" href="/">resumaer<span>.</span></a>
-        <span className="milestone">V1.4 · Complete profile</span>
+        <span className="milestone">V3 · Full JSON Resume</span>
       </header>
       <section className="intro" aria-labelledby="page-title">
         <p className="eyebrow">YOUR CAREER, IN YOUR WORDS</p>
@@ -167,16 +196,20 @@ export default function App() {
 
       {loadState === 'ready' && <>
         <div className="editor-toolbar">
-          <div className="view-switcher" role="group" aria-label="Profile view">
-            {(['edit', 'preview', 'json'] as const).map((option) => <button key={option} type="button"
-              aria-pressed={view === option} disabled={busy} onClick={() => setView(option)}>
-              {option === 'edit' ? 'Edit profile' : option === 'preview' ? 'Preview' : 'JSON'}
-            </button>)}
+          <div className="toolbar-group">
+            <div className="view-switcher" role="group" aria-label="Profile view">
+              {(['edit', 'preview', 'json'] as const).map((option) => <button key={option} type="button"
+                aria-pressed={view === option} disabled={busy} onClick={() => setView(option)}>
+                {option === 'edit' ? 'Edit profile' : option === 'preview' ? 'Preview' : 'JSON'}
+              </button>)}
+            </div>
+            <button type="button" className="outline-button import-button" onClick={() => setImportOpen(true)} disabled={busy}>Import</button>
           </div>
           <div className="save-controls">
             <span className={`draft-status ${savedProfile !== null && !dirty ? 'saved' : ''}`}>
               <span className="status-dot" aria-hidden="true" />{draftStatus}
             </span>
+            <ExportPanel profile={draft} disabled={busy} />
             <button type="submit" form="profile-form" disabled={busy}>
               {feedback.state === 'saving' ? 'Saving…' : 'Save profile'}
             </button>
@@ -189,13 +222,19 @@ export default function App() {
             <div className="card-heading"><div><h2 id="basics-title">Personal details</h2>
               <p className="card-description">Introduce yourself and help people get in touch. Your name is required.</p></div></div>
             {fieldErrors.basics && <p className="field-error">{fieldErrors.basics}</p>}
-            <BasicsForm basics={draft.basics} onChange={changeBasics} {...sectionProps} />
+            <BasicsForm basics={draft.basics} onChange={changeBasics} onChangeLocation={changeLocation} onChangeProfiles={changeProfiles} {...sectionProps} />
           </section>
           <WorkForm entries={draft.work} onChange={(entries) => changeSection('work', entries)} {...sectionProps} />
+          <VolunteerForm entries={draft.volunteer} onChange={(entries) => changeSection('volunteer', entries)} {...sectionProps} />
           <EducationForm entries={draft.education} onChange={(entries) => changeSection('education', entries)} {...sectionProps} />
-          <SkillsForm entries={draft.skills} onChange={(entries) => changeSection('skills', entries)} {...sectionProps} />
-          <ProjectsForm entries={draft.projects} onChange={(entries) => changeSection('projects', entries)} {...sectionProps} />
+          <AwardsForm entries={draft.awards} onChange={(entries) => changeSection('awards', entries)} {...sectionProps} />
           <CertificatesForm entries={draft.certificates} onChange={(entries) => changeSection('certificates', entries)} {...sectionProps} />
+          <PublicationsForm entries={draft.publications} onChange={(entries) => changeSection('publications', entries)} {...sectionProps} />
+          <SkillsForm entries={draft.skills} onChange={(entries) => changeSection('skills', entries)} {...sectionProps} />
+          <LanguagesForm entries={draft.languages} onChange={(entries) => changeSection('languages', entries)} {...sectionProps} />
+          <InterestsForm entries={draft.interests} onChange={(entries) => changeSection('interests', entries)} {...sectionProps} />
+          <ReferencesForm entries={draft.references} onChange={(entries) => changeSection('references', entries)} {...sectionProps} />
+          <ProjectsForm entries={draft.projects} onChange={(entries) => changeSection('projects', entries)} {...sectionProps} />
           <p className="editor-note">Adding, editing, or removing an entry changes your draft. Click Save profile to save all sections.</p>
         </form>
 
@@ -217,11 +256,12 @@ export default function App() {
       <aside className="storage-note" aria-label="About saving">
         <span className="note-icon" aria-hidden="true">i</span>
         <p><strong>A place to start.</strong> Saved details stay available after a page refresh.
-          For now, restarting Express clears your saved profile.</p>
+          Your profile is persisted to MongoDB.</p>
       </aside>
       <footer>Made for your next chapter. One small step at a time.</footer>
       <DeleteProfileDialog open={deleteOpen} deleting={feedback.state === 'deleting'}
         onCancel={() => setDeleteOpen(false)} onConfirm={handleDelete} />
+      <ImportDialog open={importOpen} onCancel={() => setImportOpen(false)} onImport={handleImport} />
     </main>
   );
 }

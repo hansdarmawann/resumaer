@@ -51,12 +51,16 @@ const profile = {
   basics: {
     name: 'Ada Lovelace',
     label: 'Software engineer',
+    image: '',
     email: 'ada@example.com',
     phone: '+62 123 456 789',
     url: 'https://example.com',
     summary: 'I build useful software.',
+    location: { address: '', postalCode: '', city: '', countryCode: '', region: '' },
+    profiles: [],
   },
-  work: [], education: [], skills: [], projects: [], certificates: [],
+  work: [], volunteer: [], education: [], awards: [], certificates: [],
+  publications: [], skills: [], languages: [], interests: [], references: [], projects: [],
 };
 
 test('complete create, load, update, and delete lifecycle', async () => {
@@ -83,10 +87,16 @@ test('complete create, load, update, and delete lifecycle', async () => {
 
 test('optional fields default to empty strings and input strings are trimmed', async () => {
   assert.deepEqual((await request('POST', { basics: { name: '  Ada  ' } })).body, {
-    basics: { name: 'Ada', label: '', email: '', phone: '', url: '', summary: '' },
-    work: [], education: [], skills: [], projects: [], certificates: [],
+    basics: { name: 'Ada', label: '', image: '', email: '', phone: '', url: '', summary: '', location: { address: '', postalCode: '', city: '', countryCode: '', region: '' }, profiles: [] },
+    work: [], volunteer: [], education: [], awards: [], certificates: [], publications: [], skills: [], languages: [], interests: [], references: [], projects: [],
   });
-  const padded = { basics: Object.fromEntries(Object.entries(profile.basics).map(([key, value]) => [key, `  ${value}  `])) };
+  // Only pad the scalar string fields; location (object) and profiles (array) are not strings.
+  const scalarBasics = Object.fromEntries(
+    Object.entries(profile.basics)
+      .filter(([, value]) => typeof value === 'string')
+      .map(([key, value]) => [key, `  ${value}  `])
+  );
+  const padded = { basics: { ...profile.basics, ...scalarBasics } };
   assert.deepEqual((await request('PUT', padded)).body, profile);
   assert.deepEqual((await request('GET')).body, profile);
 });
@@ -120,10 +130,13 @@ test('field limits are enforced, and exact limits are accepted', async () => {
   const atLimit = {
     name: 'a'.repeat(120),
     label: 'a'.repeat(120),
+    image: '',
     email: `${'a'.repeat(242)}@example.com`,
     phone: '1'.repeat(50),
     url: `https://example.com/${'a'.repeat(2028)}`,
     summary: 'a'.repeat(5000),
+    location: { address: '', postalCode: '', city: '', countryCode: '', region: '' },
+    profiles: [],
   };
   for (const [field, limit] of Object.entries(limits)) {
     const result = await request('PUT', { basics: { ...profile.basics, [field]: 'a'.repeat(limit + 1) } });
@@ -139,7 +152,6 @@ test('wrong shapes and unsupported fields do not create or overwrite a profile',
   const invalid = [
     {}, [], null,
     { basics: [] }, { basics: null }, { basics: {} },
-    { basics: { name: 'Ada' }, volunteer: [] },
     { basics: { name: 'Ada', website: 'https://example.com' } },
   ];
   for (const body of invalid) {

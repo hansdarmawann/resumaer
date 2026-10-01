@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   font-family: Inter, "Segoe UI", system-ui, sans-serif;
   color: #182438;
   background: #f5f7fb;
@@ -128,3 +128,22 @@ footer { padding: 20px 0 8px; border-top: 1px solid #dce3ef; color: #626e81; fon
   .dialog-actions { flex-direction: column; }
   .dialog-actions button { width: 100%; }
 }
+
+/* V3 additions */
+.basics-subsection { margin-top: 32px; padding-top: 24px; border-top: 1px solid #e6ebf3; }
+.subsection-heading { display: flex; align-items: baseline; gap: 12px; margin-bottom: 20px; }
+.subsection-title { margin: 0; font-size: 16px; }
+.compact-entry { padding: 24px; margin-bottom: 16px; background: #f9fafc; border: 1px solid #e6ebf3; border-radius: 8px; position: relative; }
+.compact-entry-actions { position: absolute; top: 16px; right: 16px; }
+.import-tabs { display: flex; gap: 8px; margin: 20px 0; border-bottom: 1px solid #e6ebf3; padding-bottom: 12px; }
+.import-tabs button { background: none; color: #536179; padding: 8px 16px; border: 1px solid transparent; }
+.import-tabs button:hover:enabled { background: #f3f5f9; }
+.import-tabs button[aria-pressed="true"] { background: #e8eefc; color: #2747af; border-color: #b8c7e7; }
+.import-file-area { padding: 40px; border: 2px dashed #cbd5e3; border-radius: 8px; text-align: center; margin-bottom: 24px; background: #f9fafc; }
+.import-paste-area { margin-bottom: 24px; }
+.file-label { display: inline-block; padding: 10px 20px; background: #3559cc; color: white; border-radius: 7px; cursor: pointer; font-weight: 600; margin-bottom: 8px; }
+.import-error { margin-bottom: 16px; padding: 12px; background: #fff0ec; color: #8b3326; border: 1px solid #dba295; border-radius: 6px; }
+.export-panel { display: flex; gap: 8px; }
+.toolbar-group { display: flex; gap: 12px; align-items: center; }
+.import-button { padding: 8px 12px; font-size: 12px; }
+.preview-avatar { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; margin-bottom: 20px; border: 2px solid #e6ebf3; }

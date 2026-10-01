@@ -1,4 +1,4 @@
-import { emptyBasics, entryFactories } from '../types/profile';
+import { emptyBasics, emptyLocation, entryFactories } from '../types/profile';
 import type { FieldErrors, Profile } from '../types/profile';
 
 const PROFILE_URL = 'http://localhost:3000/api/profile';
@@ -17,13 +17,29 @@ function isObject(value: unknown): value is Record<string, unknown> {
 function isProfile(value: unknown): value is Profile {
   if (!isObject(value) || !isObject(value.basics)) return false;
   const basics = value.basics;
-  if (!Object.keys(emptyBasics).every((field) => typeof basics[field] === 'string')) return false;
+  // Check scalar basics fields
+  for (const field of Object.keys(emptyBasics) as (keyof typeof emptyBasics)[]) {
+    if (field === 'location' || field === 'profiles') continue;
+    if (typeof basics[field] !== 'string') return false;
+  }
+  // Check location sub-object
+  if (!isObject(basics.location)) return false;
+  for (const field of Object.keys(emptyLocation)) {
+    if (typeof (basics.location as Record<string, unknown>)[field] !== 'string') return false;
+  }
+  // Check profiles array
+  if (!Array.isArray(basics.profiles)) return false;
+  if (!basics.profiles.every((p: unknown) =>
+    isObject(p) && typeof p.network === 'string' &&
+    typeof p.username === 'string' && typeof p.url === 'string')) return false;
+
+  // Check all repeating sections
   return Object.entries(entryFactories).every(([section, createEntry]) => {
     const entries = value[section];
     return Array.isArray(entries) && entries.every((entry: unknown) =>
       isObject(entry) && Object.entries(createEntry()).every(([field, example]) =>
         Array.isArray(example)
-          ? Array.isArray(entry[field]) && entry[field].every((item: unknown) => typeof item === 'string')
+          ? Array.isArray(entry[field]) && (entry[field] as unknown[]).every((item: unknown) => typeof item === 'string')
           : typeof entry[field] === 'string'));
   });
 }
@@ -39,7 +55,7 @@ async function request(options: RequestInit): Promise<Response> {
     if (error instanceof DOMException && error.name === 'TimeoutError') {
       throw new Error('Express took too long to respond. Please try again.');
     }
-    throw new Error('Couldn’t reach Express at localhost:3000. Check that the server is running.');
+    throw new Error('Couldn\u2019t reach Express at localhost:3000. Check that the server is running.');
   }
 }
 
@@ -59,7 +75,10 @@ async function readData(response: Response): Promise<unknown> {
     if (isObject(data) && isObject(data.errors)) {
       for (const [field, message] of Object.entries(data.errors)) {
         const knownPath = Object.hasOwn(emptyBasics, field) || field === 'basics' ||
-          /^(work|education|skills|projects|certificates)(\.\d+(\.[a-zA-Z]+)?)?$/.test(field);
+          field === 'location' || field === 'profiles' ||
+          /^location\.[a-zA-Z]+$/.test(field) ||
+          /^profiles(\.\d+(\.\w+)?)?$/.test(field) ||
+          /^(work|volunteer|education|awards|certificates|publications|skills|languages|interests|references|projects)(\.\d+(\.\w+)?)?$/.test(field);
         if (knownPath && typeof message === 'string') errors[field] = message;
       }
     }

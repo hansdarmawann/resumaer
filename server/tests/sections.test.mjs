@@ -39,17 +39,28 @@ async function request(method, body) {
 }
 
 const profile = {
-  basics: { name: 'Ada', label: 'Engineer', email: '', phone: '+62 0812', url: '', summary: '' },
+  basics: { 
+    name: 'Ada', label: 'Engineer', email: '', phone: '+62 0812', url: '', summary: '',
+    image: '',
+    location: { address: '', postalCode: '', city: '', countryCode: '', region: '' },
+    profiles: [],
+  },
   work: [{ name: 'Acme', position: 'Engineer', url: 'https://acme.example', startDate: '2020-01', endDate: '', summary: 'Built tools.', highlights: ['Improved accessibility', 'Reduced load time'] }],
+  volunteer: [{ organization: 'Open Source', position: 'Contributor', url: '', startDate: '2021', endDate: '', summary: '', highlights: [] }],
   education: [{ institution: 'University', area: 'Computing', studyType: 'BSc', score: '3.90', url: '', startDate: '2016', endDate: '2020', courses: ['Algorithms'] }],
-  skills: [{ name: 'Web', level: 'Advanced', keywords: ['React', 'TypeScript'] }],
-  projects: [{ name: 'Resumaer', description: 'A profile builder.', url: 'https://example.com', startDate: '2024-02-29', endDate: '2025', highlights: ['Accessible forms'] }],
+  awards: [{ title: 'Best Project', date: '2022-06', awarder: 'Tech Inc', summary: '' }],
   certificates: [{ name: 'Cloud fundamentals', issuer: 'Example', date: '2024-02-29', url: 'https://example.com/certificate' }],
+  publications: [{ name: 'My Paper', publisher: 'IEEE', releaseDate: '2023-05', url: '', summary: '' }],
+  skills: [{ name: 'Web', level: 'Advanced', keywords: ['React', 'TypeScript'] }],
+  languages: [{ language: 'Indonesian', fluency: 'Native' }],
+  interests: [{ name: 'Open Source', keywords: ['TypeScript', 'Node.js'] }],
+  references: [{ name: 'Jane Doe', reference: 'Excellent engineer.' }],
+  projects: [{ name: 'Resumaer', description: 'A profile builder.', url: 'https://example.com', startDate: '2024-02-29', endDate: '2025', highlights: ['Accessible forms'], roles: [], type: '' }],
 };
 
 test('all sections can be created, loaded, edited, removed, and deleted together', async () => {
   const draft = structuredClone(profile);
-  for (const section of ['work', 'education', 'skills', 'projects', 'certificates']) {
+  for (const section of ['work', 'volunteer', 'education', 'awards', 'certificates', 'publications', 'skills', 'languages', 'interests', 'references', 'projects']) {
     draft[section].push(structuredClone(draft[section][0]));
   }
   assert.deepEqual(await request('POST', draft), { status: 201, body: draft });
@@ -60,7 +71,7 @@ test('all sections can be created, loaded, edited, removed, and deleted together
   draft.projects[1].description = 'Updated project.';
   draft.certificates[1].issuer = 'Updated issuer';
   assert.deepEqual(await request('PUT', draft), { status: 200, body: draft });
-  for (const section of ['work', 'education', 'skills', 'projects', 'certificates']) draft[section].splice(0, 1);
+  for (const section of ['work', 'volunteer', 'education', 'awards', 'certificates', 'publications', 'skills', 'languages', 'interests', 'references', 'projects']) draft[section].splice(0, 1);
   assert.deepEqual(await request('PUT', draft), { status: 200, body: draft });
   assert.deepEqual((await request('GET')).body, draft);
   assert.equal((await request('DELETE')).status, 204);
@@ -71,13 +82,24 @@ test('all sections can be created, loaded, edited, removed, and deleted together
 test('optional fields and arrays are normalized, including text lists', async () => {
   const minimal = {
     basics: { name: '  Ada  ' }, work: [{ name: ' Acme ', position: ' Engineer ', highlights: [' One ', '', ' Two '] }],
-    education: [{ institution: ' University ' }], skills: [{ name: ' Web ' }],
-    projects: [{ name: ' Project ' }], certificates: [{ name: ' Certificate ' }],
+    volunteer: [{ organization: ' Open Source ' }],
+    education: [{ institution: ' University ' }],
+    awards: [{ title: ' Best Project ' }],
+    certificates: [{ name: ' Certificate ' }],
+    publications: [{ name: ' My Paper ' }],
+    skills: [{ name: ' Web ' }],
+    languages: [{ language: ' Indonesian ' }],
+    interests: [{ name: ' Open Source ' }],
+    references: [{ name: ' Jane Doe ' }],
+    projects: [{ name: ' Project ' }],
   };
   const result = await request('POST', minimal);
   assert.equal(result.status, 201);
   assert.deepEqual(result.body.work[0], {
     name: 'Acme', position: 'Engineer', url: '', startDate: '', endDate: '', summary: '', highlights: ['One', 'Two'],
+  });
+  assert.deepEqual(result.body.volunteer[0], {
+    organization: 'Open Source', position: '', url: '', startDate: '', endDate: '', summary: '', highlights: [],
   });
   assert.deepEqual(result.body.education[0].courses, []);
   assert.deepEqual(result.body.skills[0].keywords, []);
@@ -88,8 +110,9 @@ test('optional fields and arrays are normalized, including text lists', async ()
 
 test('invalid section shapes and entries return paths and preserve every saved section', async () => {
   await request('POST', profile);
-  for (const section of ['work', 'education', 'skills', 'projects', 'certificates']) {
-    for (const [value, path] of [[null, section], [{}, section], [[null], `${section}.0`], [[[]], `${section}.0`], [[{}], `${section}.0.${section === 'education' ? 'institution' : 'name'}`]]) {
+  for (const section of ['work', 'volunteer', 'education', 'awards', 'certificates', 'publications', 'skills', 'languages', 'interests', 'references', 'projects']) {
+    const reqField = section === 'volunteer' ? 'organization' : section === 'education' ? 'institution' : section === 'awards' ? 'title' : section === 'languages' ? 'language' : 'name';
+    for (const [value, path] of [[null, section], [{}, section], [[null], `${section}.0`], [[[]], `${section}.0`], [[{}], `${section}.0.${reqField}`]]) {
       const result = await request('PUT', { ...profile, [section]: value });
       assert.equal(result.status, 400, path);
       assert.equal(typeof result.body.errors[path], 'string', path);
@@ -136,7 +159,7 @@ test('entry and list limits allow their boundaries and reject excess', async () 
   draft.work = Array.from({ length: 50 }, () => structuredClone(profile.work[0]));
   draft.skills[0].keywords = Array(50).fill('a'.repeat(500));
   assert.equal((await request('POST', draft)).status, 201);
-  for (const section of ['work', 'education', 'skills', 'projects', 'certificates']) {
+  for (const section of ['work', 'volunteer', 'education', 'awards', 'certificates', 'publications', 'skills', 'languages', 'interests', 'references', 'projects']) {
     const invalid = { ...draft, [section]: Array(51).fill(profile[section][0]) };
     const result = await request('PUT', invalid);
     assert.equal(result.status, 400);
