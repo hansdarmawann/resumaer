@@ -3,21 +3,22 @@ import * as profileService from '../services/profile.service.js';
 import { validateProfile } from '../validation/profile.validation.js';
 
 // Controllers translate HTTP requests into service calls and HTTP responses.
-export function getProfile(_request: Request, response: Response): void {
-  response.json(profileService.getProfile());
+export async function getProfile(_request: Request, response: Response): Promise<void> {
+  response.json(await profileService.getProfile());
 }
 
-export function createProfile(request: Request, response: Response): void {
+export async function createProfile(request: Request, response: Response): Promise<void> {
   const profile = validateProfile(request.body);
-  response.status(201).json(profileService.createProfile(profile));
+  response.status(201).json(await profileService.createProfile(profile));
 }
 
-export function updateProfile(request: Request, response: Response): void {
+export async function updateProfile(request: Request, response: Response): Promise<void> {
   const profile = validateProfile(request.body);
-  response.json(profileService.updateProfile(profile));
+  response.json(await profileService.updateProfile(profile));
 }
 
-export function deleteProfile(_request: Request, response: Response): void {
-  profileService.deleteProfile();
+export async function deleteProfile(_request: Request, response: Response): Promise<void> {
+  await profileService.deleteProfile();
   response.status(204).send();
 }
+

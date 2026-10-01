@@ -1,11 +1,17 @@
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, test } from 'node:test';
+import { MongoMemoryServer } from 'mongodb-memory-server';
+import mongoose from 'mongoose';
 import { app } from '../dist/app.js';
 
 let server;
 let origin;
+let mongoServer;
 
 before(async () => {
+  mongoServer = await MongoMemoryServer.create();
+  await mongoose.connect(mongoServer.getUri());
+
   // Port 0 asks the OS for a free port, keeping tests separate from the dev server.
   server = app.listen(0, '127.0.0.1');
   await new Promise((resolve, reject) => {
@@ -19,6 +25,8 @@ after(async () => {
   await new Promise((resolve, reject) => {
     server.close((error) => error ? reject(error) : resolve());
   });
+  await mongoose.disconnect();
+  await mongoServer.stop();
 });
 
 beforeEach(async () => {
@@ -187,3 +195,4 @@ test('health, unknown endpoints, and local browser CORS work', async () => {
   assert.match(response.headers.get('access-control-allow-methods'), /PUT/);
   assert.match(response.headers.get('access-control-allow-headers'), /content-type/i);
 });
+

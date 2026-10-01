@@ -1,11 +1,18 @@
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, test } from 'node:test';
+import { MongoMemoryServer } from 'mongodb-memory-server';
+import mongoose from 'mongoose';
 import { app } from '../dist/app.js';
 import * as service from '../dist/services/profile.service.js';
 
 let server;
 let origin;
+let mongoServer;
+
 before(async () => {
+  mongoServer = await MongoMemoryServer.create();
+  await mongoose.connect(mongoServer.getUri());
+
   server = app.listen(0, '127.0.0.1');
   await new Promise((resolve, reject) => {
     server.once('listening', resolve);
@@ -13,8 +20,16 @@ before(async () => {
   });
   origin = `http://127.0.0.1:${server.address().port}/api/profile`;
 });
-after(async () => { await new Promise((resolve) => server.close(resolve)); });
-beforeEach(async () => { await fetch(origin, { method: 'DELETE' }); });
+
+after(async () => {
+  await new Promise((resolve) => server.close(resolve));
+  await mongoose.disconnect();
+  await mongoServer.stop();
+});
+
+beforeEach(async () => {
+  await fetch(origin, { method: 'DELETE' });
+});
 
 async function request(method, body) {
   const response = await fetch(origin, { method, ...(body && {
@@ -150,9 +165,10 @@ test('partial dates allow overlapping periods and reject reversed periods', asyn
 
 test('nested service copies cannot mutate stored entries or lists', async () => {
   await request('POST', profile);
-  const copy = service.getProfile();
+  const copy = await service.getProfile();
   copy.work[0].highlights.push('Unwanted change');
   copy.skills[0].name = 'Unwanted change';
   copy.education.splice(0, 1);
   assert.deepEqual((await request('GET')).body, profile);
 });
+
