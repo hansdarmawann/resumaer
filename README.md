@@ -5,7 +5,7 @@ to share, but are not designed as a complete, reusable source of career data.
 This project is a local **master resume**—a place to maintain a full professional
 history, then turn it into a resume ready to review or save as a PDF.
 
-**Current version: V4 — single-column resume preview and browser PDF output.**
+**Current version: V4.x — section subtabs, editor pagination, project links, and browser PDF output.**
 
 ## Current capabilities
 
@@ -14,6 +14,8 @@ history, then turn it into a resume ready to review or save as a PDF.
   Interests, References, and Projects**.
 - Add, edit, and remove entries in every section; data is stored locally in
   MongoDB and survives backend restarts.
+- Edit one section at a time using subtabs. Each list has its own page and
+  **Items per page** setting: **3**, **5** (default), or **10**.
 - Store validated **JSON Resume** data, then import or export the full profile
   as `resume.json`.
 - View the latest draft—including unsaved changes—in the editor, resume preview,
@@ -26,6 +28,17 @@ history, then turn it into a resume ready to review or save as a PDF.
 
 Click **Save profile** to save the entire draft; refresh to load it again. Failed
 saves preserve every section and show errors beside the affected fields.
+
+In **Edit profile**, choose Personal, Experience, Education, Skills, Projects,
+or another section. On narrow screens, swipe or scroll the tab row; keyboard
+users can use Left/Right, Home, and End. Switching sections or pages preserves
+unsaved edits and each section's pagination. Personal details use one form with
+no pagination. Changing the page size returns to page one; adding an entry opens
+its page, and deleting the last entry on a page keeps the page number valid.
+Pagination limits only the editor: saving, JSON, Preview, and PDF include every
+entry. A failed save opens the section and page containing the first error and
+focuses its field. Importing, deleting the profile, or refreshing resets editor
+navigation to its defaults.
 
 Switch to **Preview** to see the current draft as a single-column resume, or
 **JSON** to inspect the object sent to the API. Both views include unsaved edits.
@@ -44,6 +57,8 @@ standard headings, real text, and a single reading column. Empty sections are
 omitted. The image field remains available in profile data but is not shown on
 the resume. Website and social profile URLs remain visible as text; only safe
 HTTP(S) URLs become website links. Multiline text and long URLs wrap to fit.
+Projects with a URL show **Project website: [URL]**; safe links open a new tab
+with `noopener noreferrer`. Blank project URLs produce no link or placeholder.
 This layout is intended to be ATS-friendly, but parsing varies between applicant
 tracking systems and is not guaranteed.
 
@@ -259,7 +274,8 @@ Frontend files:
 | `client/src/types/profile.ts` | Types for every section, empty-entry factories, and field-error paths. |
 | `client/src/api/profile.ts` | GET/POST/PUT/DELETE, HTTP status checks, response shape checks, and usable errors. |
 | `client/src/components/BasicsForm.tsx` | Labeled controlled inputs and field messages for personal details. |
-| `client/src/components/SectionForm.tsx` | Repeating-entry editor with add/remove, immutable updates, stable row keys, and indexed errors. Keys stay out of saved JSON. |
+| `client/src/components/ProfileEditor.tsx` | Responsive, keyboard-accessible section subtabs; mounted forms preserve editor state; validation reveals the invalid section. |
+| `client/src/components/SectionForm.tsx` | Repeating-entry editor with independent pagination, add/remove, immutable updates, stable row keys, and indexed errors. Keys and pagination stay out of saved JSON. |
 | `client/src/components/WorkForm.tsx` | Work experience fields and required inputs. |
 | `client/src/components/EducationForm.tsx`, `SkillsForm.tsx`, `ProjectsForm.tsx`, `CertificatesForm.tsx`, and the remaining section forms | Focused components defining fields for each repeating section. |
 | `client/src/components/ResumeDocument.tsx` | Shared resume content for Preview and print: basics, all eleven sections, standard headings, multiline text, and visible safe website links. |
@@ -399,6 +415,31 @@ For V4, also verify the resume and PDF manually:
    and check a safe URL remains usable. Also check Preview at a narrow mobile
    width for horizontal overflow.
 
+For V4.x, also verify section navigation and editor pagination:
+
+1. Add at least eleven entries to Experience, Education, and Projects. Change
+   **Items per page** to 3, 5, and 10 and verify visible counts, page totals,
+   Previous/Next boundaries, and reset to page one after a size change.
+2. Edit entries on different pages, switch subtabs, and return. Confirm unsaved
+   edits and each section's selected size/page remain. Add an entry and confirm
+   its page opens; delete the last entry on the last page and confirm the page
+   stays valid. Save and refresh to confirm every entry is persisted.
+3. Enter an invalid URL in a project on a later page. Save from Personal, Preview,
+   or JSON; confirm Projects opens to the invalid entry and focuses its field.
+   Correct it and save. Check Preview, JSON, and PDF include all entries.
+4. Check project links with valid and blank URLs. Valid links should show a clear
+   label and open a new tab; blank URLs should show nothing. Test all subtabs at
+   390 px and 320 px, and navigate tabs with Left/Right, Home, and End.
+
+V4.x verification passed the frontend production build, all **14 backend HTTP
+integration tests**, and isolated Chromium checks covering all eleven lists,
+page sizes, unsaved edits, add/edit/remove, hidden-field validation, save/reload,
+import, deletion, and secure project links. Every subtab, Preview, and JSON fit
+**390 px and 320 px** without document overflow. The existing V4 preview/print
+checks also passed, including long documents and PDF generation. Browser checks
+used a disposable mock API with the real backend validator; backend integration
+tests used temporary MongoDB instances. Safari and Firefox were not tested.
+
 Run the automated HTTP tests and both builds from the repository root:
 
 ```powershell
@@ -449,4 +490,5 @@ and stable row keys preserve the remaining entry.
 | V1.4 - completed | Profile preview, JSON view, expanded feedback/verification, and deletion UI |
 | V2 - completed | MongoDB persistence through Mongoose |
 | V3 - completed | Full JSON Resume validation, mapping, import, and export |
-| **V4 - current, completed** | Single-column ATS-friendly resume preview and browser-native Print / Save PDF for the current draft |
+| V4 - completed | Single-column ATS-friendly resume preview and browser-native Print / Save PDF for the current draft |
+| **V4.1 - current, completed** | Project link labels, responsive Edit Profile subtabs, independent list pagination, and validation navigation to hidden fields |

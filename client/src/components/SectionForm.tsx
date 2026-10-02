@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import type { FieldErrors, Section } from '../types/profile';
 
@@ -14,6 +14,7 @@ export type SectionProps<T> = {
   onChange: (entries: T[]) => void;
   disabled: boolean;
   errors: FieldErrors;
+  errorFocus?: { path: string } | null;
 };
 type Props<T> = SectionProps<T> & {
   section: Section;
@@ -25,19 +26,36 @@ type Props<T> = SectionProps<T> & {
 };
 
 export default function SectionForm<T extends Record<string, string | string[]>>({
-  entries, onChange, disabled, errors, section, title, singular, description, fields, createEntry,
+  entries, onChange, disabled, errors, errorFocus, section, title, singular, description, fields, createEntry,
 }: Props<T>) {
   // These keys stay with the visible rows when an earlier row is removed.
   // They belong only to the editor and never enter the saved JSON.
   const [rowIds, setRowIds] = useState(() => entries.map(() => crypto.randomUUID()));
+  const [pageSize, setPageSize] = useState(5);
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(entries.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const startIndex = (currentPage - 1) * pageSize;
+  const handledError = useRef<typeof errorFocus>(null);
+
+  useLayoutEffect(() => {
+    if (!errorFocus || handledError.current === errorFocus) return;
+    handledError.current = errorFocus;
+    const [errorSection, index] = errorFocus.path.split('.');
+    if (errorSection === section && /^\d+$/.test(index ?? '')) {
+      setPage(Math.min(totalPages, Math.floor(Number(index) / pageSize) + 1));
+    }
+  }, [errorFocus, section, pageSize, totalPages]);
 
   function addEntry() {
     setRowIds((previous) => [...previous, crypto.randomUUID()]);
+    setPage(Math.floor(entries.length / pageSize) + 1);
     onChange([...entries, createEntry()]);
   }
 
   function removeEntry(index: number) {
     setRowIds((previous) => previous.filter((_, row) => row !== index));
+    setPage(Math.min(currentPage, Math.max(1, Math.ceil((entries.length - 1) / pageSize))));
     onChange(entries.filter((_, row) => row !== index));
   }
 
@@ -54,8 +72,32 @@ export default function SectionForm<T extends Record<string, string | string[]>>
       {errors[section] && <p className="field-error">{errors[section]}</p>}
       <fieldset disabled={disabled}>
         <legend className="visually-hidden">{title}</legend>
+        <div className="section-pagination" role="group" aria-label={`${title} pagination`}>
+          <div className="page-size-control">
+            <label htmlFor={`${section}-page-size`}>Items per page</label>
+            <select id={`${section}-page-size`} value={pageSize} onChange={(event) => {
+              setPageSize(Number(event.target.value)); setPage(1);
+            }}>
+              {[3, 5, 10].map((size) => <option key={size} value={size}>{size}</option>)}
+            </select>
+          </div>
+          <p className="pagination-status" aria-live="polite" aria-atomic="true">
+            Page {currentPage} of {totalPages} · {entries.length} {entries.length === 1 ? 'item' : 'items'}
+          </p>
+          <div className="pagination-actions">
+            <button type="button" className="outline-button" disabled={disabled || entries.length >= 50} onClick={addEntry}>
+              + Add {singular.toLowerCase()}
+            </button>
+            <button type="button" className="outline-button" disabled={currentPage === 1}
+              onClick={() => setPage(currentPage - 1)}>Previous</button>
+            <button type="button" className="outline-button" disabled={currentPage === totalPages}
+              onClick={() => setPage(currentPage + 1)}>Next</button>
+          </div>
+        </div>
         {entries.length === 0 && <p className="empty-section">No {title.toLowerCase()} yet. Add one when you’re ready.</p>}
-        {entries.map((entry, index) => (
+        {entries.slice(startIndex, startIndex + pageSize).map((entry, offset) => {
+          const index = startIndex + offset;
+          return (
           <fieldset key={rowIds[index]} className="entry-card">
             <legend>{singular} {index + 1}</legend>
             <div className="entry-actions">
@@ -97,10 +139,8 @@ export default function SectionForm<T extends Record<string, string | string[]>>
               })}
             </div>
           </fieldset>
-        ))}
-        <button type="button" className="outline-button" disabled={disabled || entries.length >= 50} onClick={addEntry}>
-          + Add {singular.toLowerCase()}
-        </button>
+          );
+        })}
         {entries.length >= 50 && <p className="field-hint">This section has reached the limit of 50 entries.</p>}
       </fieldset>
     </section>

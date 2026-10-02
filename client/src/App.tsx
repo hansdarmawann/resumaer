@@ -1,17 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ApiError, deleteProfile, getProfile, saveProfile } from './api/profile';
-import BasicsForm from './components/BasicsForm';
-import WorkForm from './components/WorkForm';
-import VolunteerForm from './components/VolunteerForm';
-import EducationForm from './components/EducationForm';
-import AwardsForm from './components/AwardsForm';
-import CertificatesForm from './components/CertificatesForm';
-import PublicationsForm from './components/PublicationsForm';
-import SkillsForm from './components/SkillsForm';
-import LanguagesForm from './components/LanguagesForm';
-import InterestsForm from './components/InterestsForm';
-import ReferencesForm from './components/ReferencesForm';
-import ProjectsForm from './components/ProjectsForm';
+import ProfileEditor from './components/ProfileEditor';
 import ResumeDocument from './components/ResumeDocument';
 import DeleteProfileDialog from './components/DeleteProfileDialog';
 import ImportDialog from './components/ImportDialog';
@@ -35,6 +24,7 @@ export default function App() {
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [feedback, setFeedback] = useState<Feedback>({ state: 'idle' });
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [errorFocus, setErrorFocus] = useState<{ path: string } | null>(null);
   const [view, setView] = useState<View>('edit');
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -64,24 +54,31 @@ export default function App() {
   }, [loadAttempt]);
 
   useEffect(() => {
-    if (Object.keys(fieldErrors).length) {
-      document.querySelector<HTMLElement>('#profile-form [aria-invalid="true"]')?.focus();
-    }
-  }, [fieldErrors]);
+    if (!errorFocus || view !== 'edit') return;
+    // Wait until the editor reveals the invalid section and page before focusing.
+    const frame = requestAnimationFrame(() => {
+      const panel = document.querySelector<HTMLElement>('#profile-form [role="tabpanel"]:not([hidden])');
+      (panel?.querySelector<HTMLElement>('[aria-invalid="true"]') ?? panel)?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [errorFocus, view]);
 
   function changeBasics(field: keyof Basics, value: string) {
+    setErrorFocus(null);
     setDraft((previous) => ({ ...previous, basics: { ...previous.basics, [field]: value } }));
     setFieldErrors((previous) => ({ ...previous, [field]: undefined, basics: undefined }));
     setFeedback({ state: 'idle' });
   }
 
   function changeLocation(field: keyof Location, value: string) {
+    setErrorFocus(null);
     setDraft((previous) => ({ ...previous, basics: { ...previous.basics, location: { ...previous.basics.location, [field]: value } } }));
     setFieldErrors((previous) => ({ ...previous, [`location.${field}`]: undefined, location: undefined }));
     setFeedback({ state: 'idle' });
   }
 
   function changeProfiles(profiles: SocialProfile[]) {
+    setErrorFocus(null);
     setDraft((previous) => ({ ...previous, basics: { ...previous.basics, profiles } }));
     setFieldErrors((previous) => Object.fromEntries(
       Object.entries(previous).filter(([path]) => !path.startsWith('profiles'))
@@ -90,6 +87,7 @@ export default function App() {
   }
 
   function changeSection<S extends Section>(section: S, entries: Profile[S]) {
+    setErrorFocus(null);
     setDraft((previous) => ({ ...previous, [section]: entries }));
     setFieldErrors((previous) => Object.fromEntries(
       Object.entries(previous).filter(([path]) => path !== section && !path.startsWith(`${section}.`)),
@@ -100,6 +98,7 @@ export default function App() {
   function handleImport(profile: Profile) {
     setDraft(profile);
     setFieldErrors({});
+    setErrorFocus(null);
     setFeedback({ state: 'idle' });
     setEditorVersion((previous) => previous + 1);
     setImportOpen(false);
@@ -110,6 +109,7 @@ export default function App() {
     operationInProgress.current = true;
     setFeedback({ state: 'saving' });
     setFieldErrors({});
+    setErrorFocus(null);
     try {
       const saved = await saveProfile(draft, profileExists);
       setDraft(saved);
@@ -120,7 +120,11 @@ export default function App() {
       let message = error instanceof Error ? error.message : 'The save failed.';
       if (error instanceof ApiError) {
         setFieldErrors(error.errors);
-        if (Object.values(error.errors).some(Boolean)) setView('edit');
+        const firstError = Object.entries(error.errors).find(([, message]) => Boolean(message));
+        if (firstError) {
+          setErrorFocus({ path: firstError[0] });
+          setView('edit');
+        }
         if (error.status === 404 && profileExists) {
           setProfileExists(false);
           setSavedProfile(null);
@@ -146,6 +150,7 @@ export default function App() {
       setSavedProfile(null);
       setProfileExists(false);
       setFieldErrors({});
+      setErrorFocus(null);
       setEditorVersion((previous) => previous + 1);
       setView('edit');
       setFeedback({ state: 'success', message: 'Profile deleted. You can start a new profile.' });
@@ -166,7 +171,6 @@ export default function App() {
   const dirty = JSON.stringify(draft) !== JSON.stringify(savedProfile ?? emptyProfile());
   const draftStatus = savedProfile === null ? 'Not saved yet' : dirty ? 'Unsaved changes' : 'All changes saved';
   const busy = loadState !== 'ready' || feedback.state === 'saving' || feedback.state === 'deleting';
-  const sectionProps = { disabled: busy, errors: fieldErrors };
 
   return (
     <main className="app-shell">
@@ -225,24 +229,9 @@ export default function App() {
 
         <form id="profile-form" noValidate hidden={view !== 'edit'} key={editorVersion}
           onSubmit={(event) => { event.preventDefault(); void handleSave(); }} aria-busy={busy}>
-          <section className="profile-card" aria-labelledby="basics-title">
-            <div className="card-heading"><div><h2 id="basics-title">Personal details</h2>
-              <p className="card-description">Introduce yourself and help people get in touch. Your name is required.</p></div></div>
-            {fieldErrors.basics && <p className="field-error">{fieldErrors.basics}</p>}
-            <BasicsForm basics={draft.basics} onChange={changeBasics} onChangeLocation={changeLocation} onChangeProfiles={changeProfiles} {...sectionProps} />
-          </section>
-          <WorkForm entries={draft.work} onChange={(entries) => changeSection('work', entries)} {...sectionProps} />
-          <VolunteerForm entries={draft.volunteer} onChange={(entries) => changeSection('volunteer', entries)} {...sectionProps} />
-          <EducationForm entries={draft.education} onChange={(entries) => changeSection('education', entries)} {...sectionProps} />
-          <AwardsForm entries={draft.awards} onChange={(entries) => changeSection('awards', entries)} {...sectionProps} />
-          <CertificatesForm entries={draft.certificates} onChange={(entries) => changeSection('certificates', entries)} {...sectionProps} />
-          <PublicationsForm entries={draft.publications} onChange={(entries) => changeSection('publications', entries)} {...sectionProps} />
-          <SkillsForm entries={draft.skills} onChange={(entries) => changeSection('skills', entries)} {...sectionProps} />
-          <LanguagesForm entries={draft.languages} onChange={(entries) => changeSection('languages', entries)} {...sectionProps} />
-          <InterestsForm entries={draft.interests} onChange={(entries) => changeSection('interests', entries)} {...sectionProps} />
-          <ReferencesForm entries={draft.references} onChange={(entries) => changeSection('references', entries)} {...sectionProps} />
-          <ProjectsForm entries={draft.projects} onChange={(entries) => changeSection('projects', entries)} {...sectionProps} />
-          <p className="editor-note">Adding, editing, or removing an entry changes your draft. Click Save profile to save all sections.</p>
+          <ProfileEditor profile={draft} disabled={busy} errors={fieldErrors} errorFocus={errorFocus}
+            onChangeBasics={changeBasics} onChangeLocation={changeLocation}
+            onChangeProfiles={changeProfiles} onChangeSection={changeSection} />
         </form>
 
         {view !== 'edit' && <p className="view-note">Showing your current draft{dirty ? ' with unsaved changes' : ''}.</p>}

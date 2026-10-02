@@ -75,6 +75,24 @@ footer { padding: 20px 0 8px; border-top: 1px solid #dce3ef; color: #626e81; fon
 .save-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; }
 .save-controls .draft-status { padding-top: 0; }
 .section-card { margin-top: 20px; }
+.editor-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 6px; margin-bottom: 16px; border: 1px solid #cbd5e3; border-radius: 9px; background: #fff; }
+.editor-tabs button { background: transparent; color: #536179; padding: 10px 14px; font-size: 13px; min-height: 44px; }
+.editor-tabs button:hover:enabled { background: #e8eefc; color: #2747af; }
+.editor-tabs button[aria-selected="true"] { background: #3559cc; color: #fff; }
+.editor-tabs button:focus-visible { outline-offset: -3px; }
+.editor-tabs .tab-error { margin-left: 6px; padding: 0 5px; border-radius: 50%; background: #fff0ec; color: #8b3326; }
+.editor-panel { min-width: 0; }
+.editor-panel:focus-visible { outline: 3px solid #7898fb; outline-offset: 3px; border-radius: 16px; }
+.editor-panel .section-card { margin-top: 0; }
+.section-pagination { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 16px; padding-bottom: 20px; margin-bottom: 20px; border-bottom: 1px solid #e6ebf3; }
+.page-size-control { display: flex; align-items: center; gap: 8px; }
+.page-size-control label { margin: 0; font-size: 12px; }
+.page-size-control select { padding: 10px; min-height: 44px; border: 1px solid #cbd5e3; border-radius: 7px; background: #fff; color: #182438; font: inherit; font-size: 13px; }
+.page-size-control select:focus-visible { outline: 3px solid #7898fb; outline-offset: 3px; }
+.pagination-status { margin: 0; color: #626e81; font-size: 12px; }
+.pagination-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+.pagination-actions button { font-size: 12px; min-height: 44px; padding: 10px 12px; }
+.pagination-actions button:disabled { cursor: default; }
 .entry-count { display: inline-block; margin-left: 5px; padding: 1px 7px; border-radius: 12px; background: #edf1f8; color: #536179; font-size: 12px; vertical-align: middle; }
 .empty-section { font-size: 13px; color: #626e81; margin: 0 0 20px; }
 .entry-card { border: 1px solid #dce3ef; border-radius: 10px; padding: 18px; margin-bottom: 20px; }
@@ -111,6 +129,7 @@ footer { padding: 20px 0 8px; border-top: 1px solid #dce3ef; color: #626e81; fon
   .editor-toolbar { gap: 10px; }
   .save-controls { justify-content: space-between; width: 100%; }
   .entry-card { padding: 14px; }
+  .pagination-actions { margin-left: 0; }
   .delete-dialog { padding: 20px; }
   .dialog-actions { flex-direction: column; }
   .dialog-actions button { width: 100%; }
