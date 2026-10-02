@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { Profile } from '../types/profile';
+import { formatResumeDate } from '../utils/formatResumeDate';
 
 function hasText(value: string) {
   return value.trim().length > 0;
@@ -38,8 +39,8 @@ function Text({ children, meta = false }: { children: string; meta?: boolean }) 
 function DateRange({ start, end }: { start: string; end: string }) {
   if (!hasText(start) && !hasText(end)) return null;
   const range = hasText(start)
-    ? `${start} — ${hasText(end) ? end : 'Present'}`
-    : `Until ${end}`;
+    ? `${formatResumeDate(start)} — ${hasText(end) ? formatResumeDate(end) : 'Present'}`
+    : `Until ${formatResumeDate(end)}`;
   return <Text meta>{range}</Text>;
 }
 
@@ -148,21 +149,21 @@ export default function ResumeDocument({ profile }: { profile: Profile }) {
 
       <Section title="Awards" entries={profile.awards}>{(entry) => <>
         <Heading title={entry.title}>
-          <Text meta>{joined([entry.awarder, entry.date])}</Text>
+          <Text meta>{joined([entry.awarder, formatResumeDate(entry.date)])}</Text>
         </Heading>
         <Text>{entry.summary}</Text>
       </>}</Section>
 
       <Section title="Certificates" entries={profile.certificates}>{(entry) => <>
         <Heading title={entry.name}>
-          <Text meta>{joined([entry.issuer, entry.date])}</Text>
+          <Text meta>{joined([entry.issuer, formatResumeDate(entry.date)])}</Text>
         </Heading>
         <Website url={entry.url} />
       </>}</Section>
 
       <Section title="Publications" entries={profile.publications}>{(entry) => <>
         <Heading title={entry.name}>
-          <Text meta>{joined([entry.publisher, entry.releaseDate])}</Text>
+          <Text meta>{joined([entry.publisher, formatResumeDate(entry.releaseDate)])}</Text>
         </Heading>
         <Website url={entry.url} />
         <Text>{entry.summary}</Text>

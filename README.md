@@ -59,6 +59,9 @@ the resume. Website and social profile URLs remain visible as text; only safe
 HTTP(S) URLs become website links. Multiline text and long URLs wrap to fit.
 Projects with a URL show the URL directly; safe links open a new tab
 with `noopener noreferrer`. Blank project URLs produce no link or placeholder.
+Preview and PDF format dates according to their precision: `2025` stays `2025`,
+`2025-03` becomes `March 2025`, and `2025-03-09` becomes `March 9th, 2025`.
+The editor and JSON retain the original date format.
 This layout is intended to be ATS-friendly, but parsing varies between applicant
 tracking systems and is not guaranteed.
 
