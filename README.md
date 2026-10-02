@@ -1,12 +1,37 @@
 # Resumaer
 
-A local career profile and resume builder, built one MERN milestone at a time.
+Resumaer was born from the limitations of LinkedIn PDF exports: they are useful
+to share, but are not designed as a complete, reusable source of career data.
+This project is a local **master resume**—a place to maintain a full professional
+history, then turn it into a resume ready to review or save as a PDF.
 
-**Current milestone: V4 - Single-column resume preview and browser PDF output.**
+**Current version: V4 — single-column resume preview and browser PDF output.**
 
-Enter your personal details and add **Work experience, Volunteer, Education, Awards, Certificates, Publications, Skills, Languages, Interests, References, and Projects**. Each section supports adding, editing, and removing entries. Click **Save profile** to save the entire draft; refresh to load it again. Failed saves preserve every section and show errors beside the affected fields.
+## Current capabilities
 
-Switch to **Preview** to see the current draft as a single-column resume, or **JSON** to inspect the object sent to the API. Both views include unsaved edits. **Save profile** and **Print / Save PDF** work from all three views. Printing uses the current draft without saving it. **Delete profile** opens a confirmation dialog; successful deletion clears the saved profile and the draft.
+- Build one master profile with personal details and **Work experience,
+  Volunteer, Education, Awards, Certificates, Publications, Skills, Languages,
+  Interests, References, and Projects**.
+- Add, edit, and remove entries in every section; data is stored locally in
+  MongoDB and survives backend restarts.
+- Store validated **JSON Resume** data, then import or export the full profile
+  as `resume.json`.
+- View the latest draft—including unsaved changes—in the editor, resume preview,
+  or JSON view.
+- Create an ATS-friendly, single-column resume and print or save a PDF through
+  the browser's native print dialog without saving changes first.
+- Validate important inputs such as email, HTTP(S) URLs, dates, date order,
+  text-length limits, and required data; failed saves do not discard the draft.
+- Delete the saved profile through a confirmation dialog when starting over.
+
+Click **Save profile** to save the entire draft; refresh to load it again. Failed
+saves preserve every section and show errors beside the affected fields.
+
+Switch to **Preview** to see the current draft as a single-column resume, or
+**JSON** to inspect the object sent to the API. Both views include unsaved edits.
+**Save profile** and **Print / Save PDF** work from all three views. Printing uses
+the current draft without saving it. **Delete profile** opens a confirmation
+dialog; successful deletion clears the saved profile and the draft.
 
 **Import** and **Export**, introduced in V3, support full JSON Resume data. You can upload a `resume.json` file or paste JSON data to populate the editor. Use Export to download your profile as a standard `resume.json` file or copy the raw JSON to your clipboard.
 
@@ -425,6 +450,3 @@ and stable row keys preserve the remaining entry.
 | V2 - completed | MongoDB persistence through Mongoose |
 | V3 - completed | Full JSON Resume validation, mapping, import, and export |
 | **V4 - current, completed** | Single-column ATS-friendly resume preview and browser-native Print / Save PDF for the current draft |
-
-Stay on localhost through V4; authentication, deployment, Docker, and AI features
-are outside these milestones.
