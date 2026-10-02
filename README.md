@@ -5,7 +5,25 @@ to share, but are not designed as a complete, reusable source of career data.
 This project is a local **master resume**—a place to maintain a full professional
 history, then turn it into a resume ready to review or save as a PDF.
 
-**Current version: V4.x — section subtabs, editor pagination, project links, and browser PDF output.**
+**Current version: V4.2 — readable resume dates and newest-first section ordering.**
+
+## Changes in V4.2 (after V4.1)
+
+- Project links in Preview and PDF now display the URL directly, without the
+  `Project website:` label. Safe links still open in a new tab; blank URLs are omitted.
+- Preview and PDF display dates according to their original precision:
+  `2025`, `March 2025`, or `March 9th, 2025`. Editor and JSON dates keep their
+  original `YYYY`, `YYYY-MM`, or `YYYY-MM-DD` values.
+- All seven dated sections now use newest-first ordering consistently in the
+  editor, Preview/PDF, JSON, saved data, and exports. Ongoing entries come first;
+  undated entries come last. Sections without date fields retain their order.
+- Date editing keeps the row in place while typing, then moves it to its sorted
+  position and page when the field loses focus. Save normalization preserves
+  editor row identities, and validation errors still reveal and focus the
+  correct entry after sorting.
+- Added seven frontend chronology tests and the `npm.cmd --prefix client test`
+  command. Isolated Chromium checks cover ordering, date editing, pagination,
+  validation, save/reload, export, removal, and import.
 
 ## Current capabilities
 
@@ -16,6 +34,8 @@ history, then turn it into a resume ready to review or save as a PDF.
   MongoDB and survives backend restarts.
 - Edit one section at a time using subtabs. Each list has its own page and
   **Items per page** setting: **3**, **5** (default), or **10**.
+- Order dated sections automatically from newest to oldest across the editor,
+  resume, JSON, saves, and exports.
 - Store validated **JSON Resume** data, then import or export the full profile
   as `resume.json`.
 - View the latest draft—including unsaved changes—in the editor, resume preview,
@@ -292,6 +312,9 @@ Frontend files:
 | `client/src/components/WorkForm.tsx` | Work experience fields and required inputs. |
 | `client/src/components/EducationForm.tsx`, `SkillsForm.tsx`, `ProjectsForm.tsx`, `CertificatesForm.tsx`, and the remaining section forms | Focused components defining fields for each repeating section. |
 | `client/src/components/ResumeDocument.tsx` | Shared resume content for Preview and print: basics, all eleven sections, standard headings, multiline text, and visible safe website links. |
+| `client/src/utils/formatResumeDate.ts` | Readable resume dates that preserve year, month, or day precision; incomplete and invalid draft dates remain readable. |
+| `client/src/utils/sortChronologically.ts` | Stable newest-first section ordering, restoration of editor row order after saving, and validation-error index mapping. |
+| `client/tests/chronology.test.mjs` | Seven tests covering date ranges, partial dates, missing/invalid dates, stable ordering, save normalization, and validation mapping. |
 | `client/src/hooks/useResumePrint.ts` | Browser print lifecycle and printing the current draft from any view. |
 | `client/src/resume.css` | Responsive single-column resume and print styles, A4 portrait pages, 16 mm margins, and automatic page flow. |
 | `client/src/components/DeleteProfileDialog.tsx` | Native confirmation dialog, Cancel/Escape, and disabled actions during deletion. |
@@ -428,7 +451,7 @@ For V4, also verify the resume and PDF manually:
    and check a safe URL remains usable. Also check Preview at a narrow mobile
    width for horizontal overflow.
 
-For V4.x, also verify section navigation and editor pagination:
+For V4.1, also verify section navigation and editor pagination:
 
 1. Add at least eleven entries to Experience, Education, and Projects. Change
    **Items per page** to 3, 5, and 10 and verify visible counts, page totals,
@@ -444,7 +467,7 @@ For V4.x, also verify section navigation and editor pagination:
    the URL and open a new tab; blank URLs should show nothing. Test all subtabs at
    390 px and 320 px, and navigate tabs with Left/Right, Home, and End.
 
-V4.x verification passed the frontend production build, all **14 backend HTTP
+V4.1 verification passed the frontend production build, all **14 backend HTTP
 integration tests**, and isolated Chromium checks covering all eleven lists,
 page sizes, unsaved edits, add/edit/remove, hidden-field validation, save/reload,
 import, deletion, and secure project links. Every subtab, Preview, and JSON fit
@@ -453,7 +476,17 @@ checks also passed, including long documents and PDF generation. Browser checks
 used a disposable mock API with the real backend validator; backend integration
 tests used temporary MongoDB instances. Safari and Firefox were not tested.
 
-Run the automated HTTP tests and both builds from the repository root:
+V4.2 verification passed the frontend production build, all **7 frontend
+chronology tests**, and isolated Chromium checks. Browser checks confirmed
+section ordering in the editor, Preview, print media, JSON, and downloaded
+exports; focus preservation while typing dates; reordering across pages on blur;
+validation targeting the correct row and page; sorted save/reload; removal of
+sorted entries; and importing unsorted data. No browser runtime errors were
+observed. These checks used a disposable mock API with the real backend
+validator and did not change the live profile. The backend HTTP tests and full
+PDF generation checks above belong to earlier milestones.
+
+Run the automated HTTP and frontend tests and both builds from the repository root:
 
 ```powershell
 npm.cmd --prefix server test
@@ -505,4 +538,5 @@ and stable row keys preserve the remaining entry.
 | V2 - completed | MongoDB persistence through Mongoose |
 | V3 - completed | Full JSON Resume validation, mapping, import, and export |
 | V4 - completed | Single-column ATS-friendly resume preview and browser-native Print / Save PDF for the current draft |
-| **V4.1 - current, completed** | Project link labels, responsive Edit Profile subtabs, independent list pagination, and validation navigation to hidden fields |
+| V4.1 - completed | Project link labels, responsive Edit Profile subtabs, independent list pagination, and validation navigation to hidden fields |
+| **V4.2 - current, completed** | Direct project URL text, readable dates in Preview/PDF, consistent newest-first ordering, stable date editing and validation navigation, and frontend chronology tests |
