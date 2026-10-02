@@ -40,6 +40,16 @@ entry. A failed save opens the section and page containing the first error and
 focuses its field. Importing, deleting the profile, or refreshing resets editor
 navigation to its defaults.
 
+Dated sections are ordered newest first in the editor, Preview/PDF, JSON, and
+saved/exported data. Work, Volunteer, Education, and Projects put ongoing entries
+first, then sort by end date, using start date to break ties. Awards and
+Certificates use their date; Publications use release date. Partial dates use
+the start of the known year or month. Entries without a valid date go last;
+equal dates preserve their existing order. Skills, Languages, Interests, and
+References retain their existing order because they have no date fields.
+While typing a date, the editor keeps the row in place and reorders it when you
+leave the field, opening its new page if needed.
+
 Switch to **Preview** to see the current draft as a single-column resume, or
 **JSON** to inspect the object sent to the API. Both views include unsaved edits.
 **Save profile** and **Print / Save PDF** work from all three views. Printing uses
@@ -448,6 +458,7 @@ Run the automated HTTP tests and both builds from the repository root:
 ```powershell
 npm.cmd --prefix server test
 npm.cmd --prefix server run build
+npm.cmd --prefix client test
 npm.cmd --prefix client run build
 ```
 

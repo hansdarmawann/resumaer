@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import type { FieldErrors, Section } from '../types/profile';
+import { chronologicalIndexes } from '../utils/sortChronologically';
 
 export type EntryField<T> = {
   key: keyof T & string;
@@ -31,6 +32,10 @@ export default function SectionForm<T extends Record<string, string | string[]>>
   // These keys stay with the visible rows when an earlier row is removed.
   // They belong only to the editor and never enter the saved JSON.
   const [rowIds, setRowIds] = useState(() => entries.map(() => crypto.randomUUID()));
+  // Hold the display order while typing a date so a row cannot leave its page mid-edit.
+  const [dateEditOrder, setDateEditOrder] = useState<number[] | null>(null);
+  const sortedIndexes = chronologicalIndexes(entries);
+  const entryIndexes = dateEditOrder ?? sortedIndexes;
   const [pageSize, setPageSize] = useState(5);
   const [page, setPage] = useState(1);
   const totalPages = Math.max(1, Math.ceil(entries.length / pageSize));
@@ -43,9 +48,11 @@ export default function SectionForm<T extends Record<string, string | string[]>>
     handledError.current = errorFocus;
     const [errorSection, index] = errorFocus.path.split('.');
     if (errorSection === section && /^\d+$/.test(index ?? '')) {
-      setPage(Math.min(totalPages, Math.floor(Number(index) / pageSize) + 1));
+      setDateEditOrder(null);
+      const position = sortedIndexes.indexOf(Number(index));
+      if (position >= 0) setPage(Math.floor(position / pageSize) + 1);
     }
-  }, [errorFocus, section, pageSize, totalPages]);
+  }, [errorFocus, section, pageSize, entries]);
 
   function addEntry() {
     setRowIds((previous) => [...previous, crypto.randomUUID()]);
@@ -95,13 +102,14 @@ export default function SectionForm<T extends Record<string, string | string[]>>
           </div>
         </div>
         {entries.length === 0 && <p className="empty-section">No {title.toLowerCase()} yet. Add one when you’re ready.</p>}
-        {entries.slice(startIndex, startIndex + pageSize).map((entry, offset) => {
-          const index = startIndex + offset;
+        {entryIndexes.slice(startIndex, startIndex + pageSize).map((index, offset) => {
+          const entry = entries[index];
+          const position = startIndex + offset;
           return (
           <fieldset key={rowIds[index]} className="entry-card">
-            <legend>{singular} {index + 1}</legend>
+            <legend>{singular} {position + 1}</legend>
             <div className="entry-actions">
-              <button type="button" className="remove-button" aria-label={`Remove ${singular.toLowerCase()} ${index + 1}`}
+              <button type="button" className="remove-button" aria-label={`Remove ${singular.toLowerCase()} ${position + 1}`}
                 onClick={() => removeEntry(index)}>Remove</button>
             </div>
             {errors[`${section}.${index}`] && <p className="field-error">{errors[`${section}.${index}`]}</p>}
@@ -122,6 +130,11 @@ export default function SectionForm<T extends Record<string, string | string[]>>
                   value: Array.isArray(value) ? value.join('\n') : value,
                   onChange: (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
                     changeField(index, field.key, field.kind === 'list' ? event.target.value.split('\n') : event.target.value),
+                  onFocus: field.kind === 'date' ? () => setDateEditOrder(sortedIndexes) : undefined,
+                  onBlur: field.kind === 'date' ? () => {
+                    setDateEditOrder(null);
+                    setPage(Math.floor(sortedIndexes.indexOf(index) / pageSize) + 1);
+                  } : undefined,
                   'aria-invalid': Boolean(error),
                   'aria-describedby': [hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(' ') || undefined,
                 };

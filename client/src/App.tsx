@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ApiError, deleteProfile, getProfile, saveProfile } from './api/profile';
 import ProfileEditor from './components/ProfileEditor';
 import ResumeDocument from './components/ResumeDocument';
@@ -6,6 +6,7 @@ import DeleteProfileDialog from './components/DeleteProfileDialog';
 import ImportDialog from './components/ImportDialog';
 import ExportPanel from './components/ExportPanel';
 import useResumePrint from './hooks/useResumePrint';
+import { errorsInDraftOrder, restoreDraftOrder, sortProfileChronologically } from './utils/sortChronologically';
 import { emptyProfile } from './types/profile';
 import type { Basics, FieldErrors, Profile, Section, Location, SocialProfile } from './types/profile';
 
@@ -17,6 +18,7 @@ type View = 'edit' | 'preview' | 'json';
 
 export default function App() {
   const [draft, setDraft] = useState<Profile>(emptyProfile);
+  const orderedDraft = useMemo(() => sortProfileChronologically(draft), [draft]);
   const [savedProfile, setSavedProfile] = useState<Profile | null>(null);
   const [profileExists, setProfileExists] = useState(false);
   const [loadState, setLoadState] = useState<LoadState>('loading');
@@ -111,16 +113,18 @@ export default function App() {
     setFieldErrors({});
     setErrorFocus(null);
     try {
-      const saved = await saveProfile(draft, profileExists);
-      setDraft(saved);
-      setSavedProfile(saved);
+      const saved = await saveProfile(orderedDraft, profileExists);
+      const normalizedDraft = restoreDraftOrder(draft, saved);
+      setDraft(normalizedDraft);
+      setSavedProfile(normalizedDraft);
       setProfileExists(true);
       setFeedback({ state: 'success', message: 'Profile saved, including all sections. You can refresh to load it again.' });
     } catch (error) {
       let message = error instanceof Error ? error.message : 'The save failed.';
       if (error instanceof ApiError) {
-        setFieldErrors(error.errors);
-        const firstError = Object.entries(error.errors).find(([, message]) => Boolean(message));
+        const draftErrors = errorsInDraftOrder(error.errors, draft);
+        setFieldErrors(draftErrors);
+        const firstError = Object.entries(draftErrors).find(([, message]) => Boolean(message));
         if (firstError) {
           setErrorFocus({ path: firstError[0] });
           setView('edit');
@@ -215,7 +219,7 @@ export default function App() {
             <span className={`draft-status ${savedProfile !== null && !dirty ? 'saved' : ''}`}>
               <span className="status-dot" aria-hidden="true" />{draftStatus}
             </span>
-            <ExportPanel profile={draft} disabled={busy} />
+            <ExportPanel profile={orderedDraft} disabled={busy} />
             <button type="button" className="outline-button" onClick={printResume}
               disabled={busy || !draft.basics.name.trim()}
               title={draft.basics.name.trim() ? 'Print the current draft or save it as a PDF' : 'Add your name to print your resume'}>
@@ -244,12 +248,12 @@ export default function App() {
           {!draft.basics.name.trim() && <p>Add your name in Edit profile to enable Print / Save PDF.</p>}
         </aside>}
         <div className={`resume-output${view === 'preview' ? '' : ' resume-screen-hidden'}`}>
-          <ResumeDocument profile={draft} />
+          <ResumeDocument profile={orderedDraft} />
         </div>
         {view === 'json' && <section className="profile-card json-card" aria-labelledby="json-title">
           <h2 id="json-title">Profile JSON</h2>
           <p className="card-description">The current draft sent to the API when you save.</p>
-          <pre tabIndex={0} aria-label="Profile JSON"><code>{JSON.stringify(draft, null, 2)}</code></pre>
+          <pre tabIndex={0} aria-label="Profile JSON"><code>{JSON.stringify(orderedDraft, null, 2)}</code></pre>
         </section>}
 
         {profileExists && <section className="delete-section" aria-labelledby="delete-section-title">
