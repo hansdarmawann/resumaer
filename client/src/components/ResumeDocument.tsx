@@ -15,7 +15,7 @@ function hasContent(value: unknown): boolean {
   return false;
 }
 
-function Website({ url, label }: { url: string; label?: string }) {
+function Website({ url }: { url: string }) {
   if (!hasText(url)) return null;
   const href = url.trim();
   let safe = false;
@@ -26,7 +26,7 @@ function Website({ url, label }: { url: string; label?: string }) {
   }
   return (
     <p className="resume-link">
-      {safe ? <a href={href} target="_blank" rel="noopener noreferrer">{label ? `${label}: ${href}` : href}</a> : url}
+      {safe ? <a href={href} target="_blank" rel="noopener noreferrer">{href}</a> : url}
     </p>
   );
 }
@@ -131,7 +131,7 @@ export default function ResumeDocument({ profile }: { profile: Profile }) {
         <Heading title={joined([entry.name, entry.type])}>
           <DateRange start={entry.startDate} end={entry.endDate} />
         </Heading>
-        <Website url={entry.url} label="Project website" />
+        <Website url={entry.url} />
         <Text>{entry.description}</Text>
         {entry.roles.some(hasText) && <Text meta>{`Roles: ${joined(entry.roles, ', ')}`}</Text>}
         <Items items={entry.highlights} />

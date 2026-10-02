@@ -57,7 +57,7 @@ standard headings, real text, and a single reading column. Empty sections are
 omitted. The image field remains available in profile data but is not shown on
 the resume. Website and social profile URLs remain visible as text; only safe
 HTTP(S) URLs become website links. Multiline text and long URLs wrap to fit.
-Projects with a URL show **Project website: [URL]**; safe links open a new tab
+Projects with a URL show the URL directly; safe links open a new tab
 with `noopener noreferrer`. Blank project URLs produce no link or placeholder.
 This layout is intended to be ATS-friendly, but parsing varies between applicant
 tracking systems and is not guaranteed.
@@ -427,8 +427,8 @@ For V4.x, also verify section navigation and editor pagination:
 3. Enter an invalid URL in a project on a later page. Save from Personal, Preview,
    or JSON; confirm Projects opens to the invalid entry and focuses its field.
    Correct it and save. Check Preview, JSON, and PDF include all entries.
-4. Check project links with valid and blank URLs. Valid links should show a clear
-   label and open a new tab; blank URLs should show nothing. Test all subtabs at
+4. Check project links with valid and blank URLs. Valid links should show only
+   the URL and open a new tab; blank URLs should show nothing. Test all subtabs at
    390 px and 320 px, and navigate tabs with Left/Right, Home, and End.
 
 V4.x verification passed the frontend production build, all **14 backend HTTP
