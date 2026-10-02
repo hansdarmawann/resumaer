@@ -86,19 +86,6 @@ footer { padding: 20px 0 8px; border-top: 1px solid #dce3ef; color: #626e81; fon
 .outline-button:hover:enabled { background: #edf1fc; }
 .editor-note, .view-note { color: #626e81; font-size: 12px; }
 .view-note { margin: 0 0 16px; }
-.resume-preview { overflow-wrap: anywhere; }
-.preview-header h2 { font-size: 30px; line-height: 1.25; }
-.preview-title { font-size: 18px; color: #425472; }
-.preview-meta { color: #626e81; font-size: 13px; }
-.preview-link { font-size: 13px; }
-.preview-link a { color: #3559cc; }
-.resume-preview p { margin: 6px 0; }
-.resume-preview section { margin-top: 26px; padding-top: 20px; border-top: 1px solid #e6ebf3; }
-.resume-preview h3 { margin: 0 0 14px; font-size: 17px; }
-.resume-preview h4 { margin: 0; font-size: 14px; }
-.preview-entry + .preview-entry { margin-top: 20px; }
-.resume-preview ul { padding-left: 22px; margin: 8px 0; font-size: 14px; }
-.preserve-lines { white-space: pre-wrap; font-size: 14px; }
 .json-card { min-width: 0; }
 .json-card pre { max-width: 100%; overflow: auto; max-height: 650px; padding: 18px; background: #f3f5f9; border-radius: 8px; font-size: 12px; line-height: 1.6; }
 .json-card pre:focus-visible { outline: 3px solid #7898fb; outline-offset: 3px; }
@@ -146,4 +133,3 @@ footer { padding: 20px 0 8px; border-top: 1px solid #dce3ef; color: #626e81; fon
 .export-panel { display: flex; gap: 8px; }
 .toolbar-group { display: flex; gap: 12px; align-items: center; }
 .import-button { padding: 8px 12px; font-size: 12px; }
-.preview-avatar { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; margin-bottom: 20px; border: 2px solid #e6ebf3; }

@@ -1,0 +1,84 @@
+.resume-screen-hidden { display: none; }
+
+.resume-instructions {
+  margin-bottom: 20px;
+  padding: 18px 20px;
+  border: 1px solid #dce3ef;
+  border-radius: 10px;
+  background: #fff;
+  color: #536179;
+  font-size: 13px;
+}
+.resume-instructions h2 { color: #182438; font-size: 16px; }
+.resume-instructions p { margin: 8px 0 0; }
+
+/* One document in normal reading order, shared by Preview and native printing.
+   No fixed height: long entries must be able to flow across printed pages. */
+.resume-document {
+  width: 100%;
+  max-width: 210mm;
+  margin: 0 auto;
+  padding: 16mm;
+  background: #fff;
+  color: #111;
+  border: 1px solid #dce3ef;
+  box-shadow: 0 8px 28px #233d6810;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.resume-document h2,
+.resume-document h3,
+.resume-document h4 { color: inherit; letter-spacing: normal; }
+.resume-header h2 { margin: 0; font-size: 24pt; line-height: 1.15; }
+.resume-document p { margin: 4pt 0; }
+.resume-document .resume-title { font-size: 13pt; }
+.resume-meta, .resume-link { font-size: 10pt; }
+.resume-document a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.resume-text { white-space: pre-wrap; }
+.resume-section { margin-top: 14pt; }
+.resume-section h3 {
+  margin: 0 0 7pt;
+  padding-bottom: 3pt;
+  border-bottom: 1px solid #777;
+  font-size: 12pt;
+  line-height: 1.25;
+}
+.resume-entry + .resume-entry { margin-top: 10pt; }
+.resume-entry h4 { margin: 0; font-size: 10.5pt; line-height: 1.4; }
+.resume-list { margin: 4pt 0; padding-left: 16pt; }
+.resume-list li { padding-left: 1pt; white-space: pre-wrap; }
+
+/* Toolbar actions can wrap even on narrow phones. */
+.toolbar-group, .export-panel { flex-wrap: wrap; min-width: 0; }
+.save-controls { min-width: 0; }
+
+@media screen and (max-width: 540px) {
+  .resume-document { padding: 24px 20px; }
+  .resume-header h2 { font-size: 22pt; }
+}
+
+@page { size: A4 portrait; margin: 16mm; }
+
+@media print {
+  :root, body { background: #fff; color: #000; }
+  body { min-width: 0; margin: 0; }
+  .app-shell { max-width: none; margin: 0; padding: 0; }
+  /* display:none removes application UI from pagination and the PDF text. */
+  .app-shell > :not(.resume-output), dialog, dialog::backdrop { display: none !important; }
+  .resume-output { display: block !important; }
+  .resume-document {
+    width: auto;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+    color: #000;
+  }
+  .resume-header, .resume-entry-heading { break-inside: avoid; }
+  .resume-section h3, .resume-entry h4, .resume-entry-heading { break-after: avoid; }
+  .resume-document p, .resume-document li { orphans: 3; widows: 3; }
+  .resume-document a { text-decoration: none; }
+}

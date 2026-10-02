@@ -2,15 +2,49 @@
 
 A local career profile and resume builder, built one MERN milestone at a time.
 
-**Current milestone: V3 - Full JSON Resume validation, mapping, import, and export.**
+**Current milestone: V4 - Single-column resume preview and browser PDF output.**
 
 Enter your personal details and add **Work experience, Volunteer, Education, Awards, Certificates, Publications, Skills, Languages, Interests, References, and Projects**. Each section supports adding, editing, and removing entries. Click **Save profile** to save the entire draft; refresh to load it again. Failed saves preserve every section and show errors beside the affected fields.
 
-Switch to **Preview** to see the current draft as a readable profile, or **JSON** to inspect the object sent to the API. Both views include unsaved edits. The save button works from all three views. **Delete profile** opens a confirmation dialog; successful deletion clears the saved profile and the draft.
+Switch to **Preview** to see the current draft as a single-column resume, or **JSON** to inspect the object sent to the API. Both views include unsaved edits. **Save profile** and **Print / Save PDF** work from all three views. Printing uses the current draft without saving it. **Delete profile** opens a confirmation dialog; successful deletion clears the saved profile and the draft.
 
-V3 introduces **Import** and **Export** for full JSON Resume compatibility. You can upload a `resume.json` file or paste JSON data to instantly populate the editor. Use Export to download your profile as a standard `resume.json` file or copy the raw JSON to your clipboard.
+**Import** and **Export**, introduced in V3, support full JSON Resume data. You can upload a `resume.json` file or paste JSON data to populate the editor. Use Export to download your profile as a standard `resume.json` file or copy the raw JSON to your clipboard.
 
-V2 and V3 store the profile in **MongoDB** (`resumaer` database on `localhost:27017`). Data persists across Express restarts and `tsx watch` reloads. You need a running MongoDB instance before starting the backend. There is no user account yet; one shared profile document lives in the `profiles` collection.
+Since V2, the profile is stored in **MongoDB** (`resumaer` database on `localhost:27017`). Data persists across Express restarts and `tsx watch` reloads. You need a running MongoDB instance before starting the backend. There is no user account yet; one shared profile document lives in the `profiles` collection.
+
+## Preview and save a PDF
+
+The resume includes personal details and all eleven supported sections, with
+standard headings, real text, and a single reading column. Empty sections are
+omitted. The image field remains available in profile data but is not shown on
+the resume. Website and social profile URLs remain visible as text; only safe
+HTTP(S) URLs become website links. Multiline text and long URLs wrap to fit.
+This layout is intended to be ATS-friendly, but parsing varies between applicant
+tracking systems and is not guaranteed.
+
+Choose **Print / Save PDF** from Edit, Preview, or JSON. The app uses the browser's
+native print dialog through `window.print()`, with the same resume content shown
+in Preview. The editor, navigation, buttons, and feedback are excluded from the
+printed document. No save request is made, and canceling the dialog preserves
+your draft and current view.
+
+In the print dialog:
+
+1. Choose **Save as PDF** as the destination.
+2. Use **A4**, **Portrait**, **100%** scale, and **Default** margins. The print
+   stylesheet requests 16 mm page margins; browser settings can override them.
+3. Disable **Headers and footers** to remove the browser's date, page URL, and
+   other added text.
+4. Check every page in the print preview, then save the PDF.
+
+Long resumes flow automatically onto additional pages. The screen preview adapts
+to the available width and does not simulate individual paper pages; the browser
+print preview determines the final pagination. PDF output keeps text selectable
+and searchable rather than turning the resume into an image. Printing runs in
+the browser, with no additional dependency, backend schema, or API changes.
+
+For the underlying browser behavior, see
+[MDN's printing guide](https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Media_queries/Printing).
 
 ## Start locally
 
@@ -153,17 +187,19 @@ rejected before any saved data changes. The validator strictly enforces the full
 ## Follow one save
 
 ```text
-React draft -> fetch() -> Route -> Controller -> Service -> In-memory profile
+React draft -> fetch() -> Route -> Controller -> Service -> Mongoose -> MongoDB
                           Express on localhost:3000
 ```
 
-1. React owns one draft containing all six sections. Typing, adding, and removing
-   entries change state; clicking **Save profile** sends the request.
+1. React owns one draft containing basics and all eleven repeating sections.
+   Typing, adding, and removing entries change state; clicking **Save profile**
+   sends the request.
 2. `client/src/api/profile.ts` calls `fetch()` with `Content-Type: application/json`
    and `JSON.stringify(profile)`. Stringifying turns an object into JSON text.
 3. The router matches the HTTP method and `/api/profile` path to a controller.
 4. The controller validates every section, calls the service, and sends an HTTP
-   response. The service reads or changes the profile stored in memory.
+   response. The service reads or changes the profile stored in MongoDB through
+   Mongoose.
 5. The browser checks `response.ok`, validates the returned profile shape, and
    updates feedback. `fetch()` rejects network failures, but HTTP 400 or 500 still
    need that explicit status check.
@@ -178,11 +214,12 @@ GET **404** means the store is empty.
 want to keep; omitted arrays become empty arrays. Basics-only V1.1 requests still
 work and produce an otherwise empty profile.
 
-If a save fails, React keeps the entire draft. If Express restarts after a profile
-was loaded, PUT receives 404. The app keeps the draft and lets the next save create
-it with POST. If another tab creates the profile first, POST receives 409 and the
-next save uses PUT. This shared V1 store uses the most recent successful write;
-there is no per-user isolation or conflict merging.
+If a save fails, React keeps the entire draft. Restarting Express preserves saved
+data in MongoDB. If the saved profile is deleted elsewhere, PUT receives 404; the
+app keeps the draft and lets the next save create it with POST. If another tab
+creates the profile first, POST receives 409 and the next save uses PUT. This
+shared store uses the most recent successful write; there is no per-user isolation
+or conflict merging.
 
 Every request has a ten-second timeout, including reading a response body.
 Loading failures offer **Retry loading**. Saving errors focus the first invalid
@@ -199,10 +236,12 @@ Frontend files:
 | `client/src/components/BasicsForm.tsx` | Labeled controlled inputs and field messages for personal details. |
 | `client/src/components/SectionForm.tsx` | Repeating-entry editor with add/remove, immutable updates, stable row keys, and indexed errors. Keys stay out of saved JSON. |
 | `client/src/components/WorkForm.tsx` | Work experience fields and required inputs. |
-| `client/src/components/EducationForm.tsx`, `SkillsForm.tsx`, `ProjectsForm.tsx`, `CertificatesForm.tsx` | Focused components defining the other four sections. |
-| `client/src/components/ProfilePreview.tsx` | All draft sections, multiline text, dates, lists, and safe website links. |
+| `client/src/components/EducationForm.tsx`, `SkillsForm.tsx`, `ProjectsForm.tsx`, `CertificatesForm.tsx`, and the remaining section forms | Focused components defining fields for each repeating section. |
+| `client/src/components/ResumeDocument.tsx` | Shared resume content for Preview and print: basics, all eleven sections, standard headings, multiline text, and visible safe website links. |
+| `client/src/hooks/useResumePrint.ts` | Browser print lifecycle and printing the current draft from any view. |
+| `client/src/resume.css` | Responsive single-column resume and print styles, A4 portrait pages, 16 mm margins, and automatic page flow. |
 | `client/src/components/DeleteProfileDialog.tsx` | Native confirmation dialog, Cancel/Escape, and disabled actions during deletion. |
-| `client/src/App.tsx` | Entire draft, saved snapshot, loading, feedback, view selection, POST/PUT selection, and deletion recovery. |
+| `client/src/App.tsx` | Entire draft, saved snapshot, loading, feedback, view selection, print action, POST/PUT selection, and deletion recovery. |
 | `client/src/main.tsx` | React mounting and development StrictMode. |
 | `client/src/styles.css` | Responsive editor, preview, JSON, and dialog styles. |
 | `client/index.html`, `client/vite.config.ts` | Browser entry point, React plugin, and fixed localhost ports. |
@@ -239,7 +278,8 @@ Backend files:
 | `server/src/app.ts` | Express, CORS, JSON parsing with a 1 MB limit, routes, and central error handling. |
 | `server/src/routes/profile.routes.ts` | Method/path routing and JSON content-type checks. |
 | `server/src/controllers/profile.controller.ts` | Request validation, service calls, and HTTP response selection. |
-| `server/src/services/profile.service.ts` | Shared in-memory CRUD with deep copies, including nested arrays. |
+| `server/src/services/profile.service.ts` | Shared profile CRUD through Mongoose queries and MongoDB persistence. |
+| `server/src/models/profile.model.ts` | Mongoose schema for the stored profile and conversion to API data. |
 | `server/src/validation/profile.validation.ts` | Runtime shape, text, list, URL, calendar date, date order, and limit checks for all supported sections. |
 | `server/src/types/profile.ts`, `server/src/errors/http-error.ts` | Profile types and expected errors with status, message, and optional field errors. |
 | `server/tests/profile.test.mjs`, `server/tests/sections.test.mjs` | Real HTTP tests for CRUD, validation, storage integrity, and error responses. |
@@ -270,28 +310,32 @@ DELETE clears all saved sections. The UI clears its draft only after a confirmed
 204 response. If DELETE returns 404 because the profile disappeared elsewhere,
 the draft remains available and the next save creates it again.
 
-## Verify V1.2-V1.4
+## Verification
 
-Verified locally: both builds and all **14 backend integration tests** pass.
-An isolated Chrome check passed create/edit/remove across all five repeating
-sections, full refresh loading, preview/JSON, safe links, indexed validation and
+Historical V1.2-V1.4 verification (before MongoDB and the full V3 schema): both
+builds and all **14 backend integration tests** passed at that milestone.
+An isolated Chrome check passed create/edit/remove across the five then-supported
+repeating sections, full refresh loading, preview/JSON, safe links, indexed validation and
 focus, failed save preservation, deletion cancellation/failure/success, conflicts
 between tabs, backend restart recovery, unexpected nested responses, and load retry.
 The editor, preview, JSON, and dialog fit **390 px and 320 px** widths without
 horizontal overflow; no browser runtime errors were observed.
 Separate streaming-response checks passed save timeouts before headers and while
 reading the body, deletion timeout recovery, and preservation of the entire draft.
-Unexpected deletion responses and stale DELETE 404 responses also preserve the
-draft; saving after DELETE 404 recreates the profile with POST.
+Unexpected deletion responses and stale DELETE 404 responses also preserved the
+draft; saving after DELETE 404 recreated the profile with POST. These results are
+a historical record, not a report of V4 verification.
 
-Use this walkthrough with both development servers running:
+Use this current profile walkthrough with MongoDB and both development servers
+running:
 
-1. Start with a fresh backend and open the frontend. Confirm empty personal
-   details and zero entries in all five sections.
+1. Open the frontend with no saved profile (use **Delete profile** first if you
+   intend to clear an existing profile). Confirm empty personal details and zero
+   entries in all eleven repeating sections.
 2. Fill personal details and add two entries in every section. Enter multiline
    highlights, courses, and keywords. Click **Save profile**.
-3. In browser developer tools > **Network**, inspect POST, status 201, all six
-   sections in the request and response, and string-valued phone/score.
+3. In browser developer tools > **Network**, inspect POST, status 201, basics and
+   all eleven sections in the request and response, and string-valued phone/score.
 4. Refresh. Confirm every field and list reloads. Edit the second entries, remove
    the first entries, then save. Inspect PUT, status 200, and the remaining entries.
 5. Change a value without saving. Switch to Preview and JSON; confirm both show
@@ -300,11 +344,35 @@ Use this walkthrough with both development servers running:
    and an empty required entry field. Confirm precise field errors and focus;
    correct them and save.
 7. Stop Express, change a field, and save. Confirm the error preserves all
-   sections. Restart Express: the first PUT receives 404; saving again uses POST.
+   sections. Restart Express and save again: PUT succeeds with the existing
+   MongoDB profile. Refresh and confirm persistence.
 8. Stop Express and refresh. Restart it and click **Retry loading**.
 9. Open **Delete profile** and choose Cancel, then test Escape. Confirm saved
    data remains. Reopen and confirm deletion: inspect DELETE 204, a cleared draft,
    and GET 404 after refresh. Enter a name and save a new profile with POST.
+
+For V4, also verify the resume and PDF manually:
+
+1. Populate basics and all eleven repeating sections, including multiline
+   summaries, lists, dates, and a long URL. Open Preview and check every section
+   appears in one reading column, with readable wrapped text and no photo.
+2. Clear a section and add an entirely blank entry to another. Confirm empty
+   sections and entries do not produce empty headings or placeholder text.
+3. Check that website and social links show their URL text. Enter an unsafe URL
+   such as `javascript:alert(1)` in an unsaved website field and confirm Preview
+   renders it as text without making it a clickable link.
+4. Make an unsaved edit and choose **Print / Save PDF** separately from Edit,
+   Preview, and JSON. Check the latest draft appears in each print preview and
+   Network shows no POST or PUT caused by printing.
+5. Cancel each print dialog. Confirm the selected view, complete draft, unsaved
+   status, and ability to keep editing are preserved. Open the dialog again to
+   confirm repeated printing works.
+6. Add enough long entries to span multiple pages. Save a PDF with the settings
+   above and inspect each page for clipping, missing text, unwanted app controls,
+   and extra blank pages. Check a long entry can continue onto another page.
+7. Open the PDF, select and copy a sentence, search for text from its last page,
+   and check a safe URL remains usable. Also check Preview at a narrow mobile
+   width for horizontal overflow.
 
 Run the automated HTTP tests and both builds from the repository root:
 
@@ -335,15 +403,17 @@ and stable row keys preserve the remaining entry.
 - **Loading, saving, or deletion fails:** check the backend terminal and health
   endpoint. Open exactly `http://localhost:5173`; inspect Network/Console errors.
   Failed save/delete requests retain the draft.
-- **Saved data persists between restarts:** V2 uses MongoDB; an Express restart no
-  longer clears the profile. To reset, delete the profile through the UI or drop the
-  `resumaer` collection in MongoDB.
+- **Saved data persists between restarts:** MongoDB keeps the profile after an
+  Express restart. To reset, delete the profile through the UI.
 - **Port already in use:** stop the previous server. Vite's `strictPort` prevents
   quietly switching origins and breaking CORS.
 - **Two initial GETs in development:** StrictMode checks effect cleanup by running
   an extra setup/cleanup cycle. You may see one canceled load request.
 - **Removed entries return after refresh:** entry removal changes the draft.
   Click **Save profile** before refreshing.
+- **PDF looks different from the screen preview:** use the browser print preview
+  to check pagination; choose A4, Portrait, 100% scale, and Default margins.
+  Disable Headers and footers to remove the browser's added page text.
 
 | Version | Scope |
 | --- | --- |
@@ -353,8 +423,8 @@ and stable row keys preserve the remaining entry.
 | V1.3 - completed | Education, Skills, Projects, and Certificates in focused components |
 | V1.4 - completed | Profile preview, JSON view, expanded feedback/verification, and deletion UI |
 | V2 - completed | MongoDB persistence through Mongoose |
-| **V3 - current, completed** | Full JSON Resume validation, mapping, import, and export |
-| V4 | Single-column ATS-friendly resume and PDF output |
+| V3 - completed | Full JSON Resume validation, mapping, import, and export |
+| **V4 - current, completed** | Single-column ATS-friendly resume preview and browser-native Print / Save PDF for the current draft |
 
 Stay on localhost through V4; authentication, deployment, Docker, and AI features
 are outside these milestones.

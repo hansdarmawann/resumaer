@@ -12,10 +12,11 @@ import LanguagesForm from './components/LanguagesForm';
 import InterestsForm from './components/InterestsForm';
 import ReferencesForm from './components/ReferencesForm';
 import ProjectsForm from './components/ProjectsForm';
-import ProfilePreview from './components/ProfilePreview';
+import ResumeDocument from './components/ResumeDocument';
 import DeleteProfileDialog from './components/DeleteProfileDialog';
 import ImportDialog from './components/ImportDialog';
 import ExportPanel from './components/ExportPanel';
+import useResumePrint from './hooks/useResumePrint';
 import { emptyProfile } from './types/profile';
 import type { Basics, FieldErrors, Profile, Section, Location, SocialProfile } from './types/profile';
 
@@ -39,6 +40,7 @@ export default function App() {
   const [importOpen, setImportOpen] = useState(false);
   const [editorVersion, setEditorVersion] = useState(0);
   const operationInProgress = useRef(false);
+  const printResume = useResumePrint(draft.basics.name);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -167,16 +169,16 @@ export default function App() {
   const sectionProps = { disabled: busy, errors: fieldErrors };
 
   return (
-    <main>
+    <main className="app-shell">
       <header className="page-header">
         <a className="wordmark" href="/">resumaer<span>.</span></a>
-        <span className="milestone">V3 · Full JSON Resume</span>
+        <span className="milestone">V4 · Resume &amp; PDF</span>
       </header>
       <section className="intro" aria-labelledby="page-title">
         <p className="eyebrow">YOUR CAREER, IN YOUR WORDS</p>
         <h1 id="page-title">Tell your whole story.</h1>
         <p className="description">Bring your experience, education, and skills together.
-          Preview your profile and save when you’re ready.</p>
+          Create a clear resume, save your profile, and print a PDF when you’re ready.</p>
       </section>
 
       <div className="feedback-region" aria-live="polite" aria-atomic="true">
@@ -210,6 +212,11 @@ export default function App() {
               <span className="status-dot" aria-hidden="true" />{draftStatus}
             </span>
             <ExportPanel profile={draft} disabled={busy} />
+            <button type="button" className="outline-button" onClick={printResume}
+              disabled={busy || !draft.basics.name.trim()}
+              title={draft.basics.name.trim() ? 'Print the current draft or save it as a PDF' : 'Add your name to print your resume'}>
+              Print / Save PDF
+            </button>
             <button type="submit" form="profile-form" disabled={busy}>
               {feedback.state === 'saving' ? 'Saving…' : 'Save profile'}
             </button>
@@ -239,7 +246,17 @@ export default function App() {
         </form>
 
         {view !== 'edit' && <p className="view-note">Showing your current draft{dirty ? ' with unsaved changes' : ''}.</p>}
-        {view === 'preview' && <ProfilePreview profile={draft} />}
+        {view === 'preview' && <aside className="resume-instructions" aria-label="PDF instructions">
+          <h2>Your resume, ready to print</h2>
+          <p>A single-column layout with selectable text. Empty sections and your photo are omitted.</p>
+          <p>Choose <strong>Print / Save PDF</strong>, then <strong>Save as PDF</strong> in the print dialog.
+            Use A4 portrait, 100% scale, and turn off browser headers and footers.
+            Check page breaks there before saving; longer resumes continue onto more pages.</p>
+          {!draft.basics.name.trim() && <p>Add your name in Edit profile to enable Print / Save PDF.</p>}
+        </aside>}
+        <div className={`resume-output${view === 'preview' ? '' : ' resume-screen-hidden'}`}>
+          <ResumeDocument profile={draft} />
+        </div>
         {view === 'json' && <section className="profile-card json-card" aria-labelledby="json-title">
           <h2 id="json-title">Profile JSON</h2>
           <p className="card-description">The current draft sent to the API when you save.</p>
